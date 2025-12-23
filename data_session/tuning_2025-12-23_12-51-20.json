@@ -1,0 +1,32 @@
+{
+    "session_id": "2025-12-23_12-51-20",
+    "tuning": {
+        "tires": {
+            "psi_front": 1.0,
+            "psi_rear": 1.0
+        },
+        "alignment": {
+            "camber_front": 1.0,
+            "camber_rear": -0.7,
+            "toe_front": 0.0,
+            "toe_rear": 0.0,
+            "caster": 5.8
+        },
+        "springs": {
+            "stiffness_front": 160.0,
+            "stiffness_rear": 220.0,
+            "ride_height_front": 12.1,
+            "ride_height_rear": 13.8
+        },
+        "damping": {
+            "rebound_front": 10.6,
+            "rebound_rear": 13.6,
+            "bump_front": 8.0,
+            "bump_rear": 10.3
+        },
+        "diff": {
+            "accel": 65.0,
+            "decel": 15.0
+        }
+    }
+}
