@@ -3,45 +3,45 @@ FROM python:3.12-slim as builder
 
 WORKDIR /app
 
-# libpq-dev нужен для сборки драйверов PostgreSQL (asyncpg/psycopg2)
-# gcc и python3-dev нужны для компиляции C-расширений (pandas, numpy)
+# Устанавливаем инструменты сборки
+# build-essential включает gcc, make и прочее для сборки C-extensions (Pandas, Numpy)
 RUN apt-get update && apt-get install -y \
-    gcc \
+    build-essential \
     python3-dev \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем и устанавливаем зависимости в локальную директорию
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Stage 2: Runtime (итоговый легкий образ)
+# Stage 2: Runtime
 FROM python:3.12-slim as runtime
 
-# Создаем не-root пользователя для безопасности
+# Создаем пользователя
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# Устанавливаем только runtime-библиотеки для Postgres (без компиляторов)
+# Только runtime библиотека для Postgres
 RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем установленные пакеты из этапа builder
+# Копируем пакеты Python
 COPY --from=builder /root/.local /home/appuser/.local
 
-# Настраиваем PATH, чтобы видеть установленные пакеты
+# Настраиваем окружение
 ENV PATH=/home/appuser/.local/bin:$PATH
-# Запрещаем создание .pyc файлов и буферизацию вывода (важно для логов в Docker)
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Копируем исходный код
+# Копируем код приложения
 COPY ./src ./src
 
-# Переключаемся на пользователя
+# Права доступа (на всякий случай)
+RUN chown -R appuser:appuser /app
+
 USER appuser
 
-# Entrypoint не указываем жестко, так как у нас разные сервисы запускаются из одного образа
+# Default command (переопределяется в docker-compose)
 CMD ["python", "-m", "src.core.main"]

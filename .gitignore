@@ -1367,3 +1367,4 @@ venv/Scripts/dotenv.exe
 venv/Scripts/py.test.exe
 venv/Scripts/pygmentize.exe
 venv/Scripts/pytest.exe
+.idea/PythonProject.iml
