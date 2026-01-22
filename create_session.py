@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime
 
-SESSION_DIR = 'data_session'
+SESSION_DIR = 'data'
 LAST_SESSION_FILE = 'last_session_config.json'
 
 

@@ -18,7 +18,7 @@ class AppEnvironment(str, Enum):
 #  UDP network config
 class NetworkConfig(BaseModel):
     """UDP network config"""
-    host: str = Field(default="0.0.0.0", description="IP address to bind")
+    host: str = Field(default="127.0.0.1", description="IP address to bind")
     port: int = Field(default=5300, description="Forza UDP Port")
 
 
@@ -33,9 +33,29 @@ class DatabaseConfig(BaseModel):
     name: str = Field(..., description="Database name")
 
     @property
-    def connection_string(self) -> str:
+    def connection_string(self) -> SecretStr:
         """URL for connection SQLAlchemy/asyncpg"""
-        return f"postgresql+asyncpg://{self.user}:{self.password.get_secret_value()}@{self.host}:{self.port}/{self.name}"
+        url = PostgresDsn.build(
+            scheme="postgresql",
+            username=self.user,
+            password=self.password.get_secret_value(),
+            host=self.host,
+            port=self.port,
+            path=self.name
+        )
+        return SecretStr(str(url).replace("postgresql://", "postgresql+asyncpg://"))
+
+    def get_asyncpg_dsn(self) -> SecretStr:
+        """URL for asyncpg connection (postgresql://)"""
+        url = PostgresDsn.build(
+            scheme="postgresql",
+            username=self.user,
+            password=self.password.get_secret_value(),
+            host=self.host,
+            port=self.port,
+            path=self.name
+        )
+        return SecretStr(str(url))
 
 
 #  AI config

@@ -1,18 +1,18 @@
 from pydantic import Field
-from pydantic_settings import BaseSettings
-from src.config import get_settings, Settings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class IngestionConfig(BaseSettings):
     """
     Configuration for the telemetry ingestion service.
+    Focuses on application-level settings (buffering, logic).
+    Network and DB settings are handled by the global configuration.
     """
-    UDP_PORT: int = Field(default=5300, description="UDP Port to listen on")
-    BUFFER_SIZE: int = Field(default=60, description="Number of packets to buffer before flush")
-    FLUSH_INTERVAL_SEC: float = Field(default=1.0, description="Time interval to flush buffer if not full")
+    model_config = SettingsConfigDict(
+        env_prefix="INGESTION_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
-    @property
-    def global_settings(self) -> Settings:
-        """
-        Access to the global project settings.
-        """
-        return get_settings()
+    buffer_size: int = Field(default=60, description="Number of packets to buffer before flush")
+    flush_interval_sec: float = Field(default=1.0, description="Time interval to flush buffer if not full")

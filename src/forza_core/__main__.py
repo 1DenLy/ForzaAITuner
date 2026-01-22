@@ -72,7 +72,7 @@ async def main():
 
     # 5. Tasks
     try:
-        # We use TaskGroup in 3.11+, assume we have it in 3.12
+        # TaskGroup in 3.11+
         async with asyncio.TaskGroup() as tg:
             # Task 1: UDP Server
             # create_datagram_endpoint return (transport, protocol)
@@ -128,6 +128,7 @@ async def main():
         # Refactoring to run create_datagram_endpoint before TaskGroup or await it inside.
         pass
 
+
 # Refactoring main to handle cleanup properly outside TaskGroup or careful usage
 async def main_refactored():
     # ... setup code ...
@@ -137,31 +138,41 @@ async def main_refactored():
             uvloop.install()
         except ImportError: pass
         
-    config = IngestionConfig()
-    setup_logging(config.global_settings.env)
+    # Load Global Settings (Network, DB, Env)
+    from src.config import get_settings
+    global_settings = get_settings()
     
+    # Load Local Config (Buffering, etc.)
+    ingestion_config = IngestionConfig()
+    
+    setup_logging(global_settings.env)
+    
+    logger.info("service_starting", env=global_settings.env, port=global_settings.network.port)
+
     queue = asyncio.Queue(maxsize=10000)
     
     try:
-        dsn = config.global_settings.db.connection_string.replace("+asyncpg", "")
+        # DB DSN from Global Settings
+        dsn = global_settings.db.get_asyncpg_dsn().get_secret_value()
         pool = await asyncpg.create_pool(dsn)
+        logger.info("db_connected", host=global_settings.db.host, db=global_settings.db.name)
     except Exception as e:
         logger.critical("db_connection_failed", error=str(e))
         return
 
     repo = PostgresRepository(pool)
-    service = IngestionService(repo, config, queue)
+    service = IngestionService(repo, ingestion_config, queue)
     transport_proto = UdpListener(queue)
     
     loop = asyncio.get_running_loop()
     
-    # Start UDP
+    # Start UDP using Global settings for Port
     try:
         transport, protocol = await loop.create_datagram_endpoint(
             lambda: transport_proto,
-            local_addr=("0.0.0.0", config.UDP_PORT)
+            local_addr=(global_settings.network.host, global_settings.network.port)
         )
-        logger.info("udp_server_started", port=config.UDP_PORT)
+        logger.info("udp_server_started", port=global_settings.network.port)
     except Exception as e:
         logger.critical("udp_bind_failed", error=str(e))
         await pool.close()
@@ -201,27 +212,16 @@ async def main_refactored():
     logger.info("udp_transport_closed")
     
     # Wait for queue to drain? 
-    # Spec: "Дождаться обработки очереди (queue.join())"
-    # But queue might confuse consumers if we don't stop them?
     # Service loop checks `_running`.
     # We should signal service to stop BUT after queue is empty?
     # Or we let it consume.
     
-    # If we stop UDP, no new packets.
-    # Service is still running.
-    # await queue.join() blocks until all items are processed.
     logger.info("waiting_for_queue_drain")
     
-    # We can't await queue.join() if the consumer is the one calling task_done() and we are blocking here.
-    # We are in main. The consumer is in service_task.
-    # So queue.join() is fine.
-    
-    # But if the queue is empty, join returns immediately.
-    # If it has items, we wait.
     try:
         await asyncio.wait_for(queue.join(), timeout=5.0)
     except asyncio.TimeoutError:
-        logger.warning("queue_drain_timeout")
+        logger.warning("queue_drain_timeout", message="Some packets might be lost due to graceful shutdown timeout")
 
     # Now stop the service
     service_task.cancel()
