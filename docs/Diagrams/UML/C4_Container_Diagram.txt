@@ -1,0 +1,49 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container Diagram - Forza AI Tuner System
+
+' Стилизация
+AddRelTag("async", $lineStyle = DashedLine())
+AddRelTag("fire_forget", $lineStyle = DottedLine())
+
+' ЛЮДИ (Actors)
+Person(user, "User (Driver/Tuner)", "Игрок, который настраивает автомобиль и управляет им.")
+System_Ext(game, "Forza Motorsport / Horizon", "Игра, запущенная на Xbox или PC. Генерирует физику и телеметрию.")
+
+' ГРАНИЦЫ СИСТЕМЫ (System Boundary)
+System_Boundary(c1, "Forza AI Tuner Infrastructure") {
+
+    ' КОНТЕЙНЕРЫ
+    Container(ui_app, "Desktop UI (Presentation)", "Python, PyQt/PySide", "Графический интерфейс для пользователя. Управление сессиями, визуализация графиков, ввод параметров тюнинга.")
+    
+    Container(core_service, "Core Service (Ingestion)", "Python 3.12 (Docker)", "Слушает UDP порт, парсит пакеты (struct), валидирует данные и буферизирует запись в БД.")
+    
+    Container(processor_service, "Processor Service (Analytics)", "Python 3.12 (Docker)", "Фоновый воркер. Вычисляет статистику сессий, анализирует работу подвески, генерирует рекомендации по тюнингу.")
+    
+    ContainerDb(database, "TimescaleDB", "PostgreSQL 17 + Timescale", "Хранит справочники авто, конфигурации тюнинга и 'сырую' телеметрию (Time-Series).")
+
+}
+
+' СВЯЗИ (Relationships)
+
+' Внешние взаимодействия
+Rel(user, game, "Управляет авто", "Input Devices")
+Rel(game, core_service, "Отправляет телеметрию (Data Out)", "UDP / 5300", $tags="fire_forget")
+Rel(user, ui_app, "Запускает анализ, смотрит графики", "Mouse/Keyboard")
+
+' Внутренние взаимодействия
+Rel(ui_app, core_service, "configs", "REST API / 8000")
+
+Rel(core_service, database, "Пишет сырую телеметрию (Batch Insert)", "TCP / 5432 (SQL)")
+
+Rel(processor_service, database, "Читает\Записывает данные, анализ/статистика", "TCP / 5432 (SQL)")
+
+Rel(processor_service, ui_app, "Результаты")
+
+Rel(ui_app, processor_service, "Указания")
+
+' Пояснения к потокам
+Lay_R(core_service, processor_service)
+
+@enduml
