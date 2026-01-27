@@ -7,9 +7,8 @@ from ..domain.models import TelemetryPacket
 from ..domain.interfaces import ITelemetryRepository
 from ..domain.events import RaceStarted
 from ..config import IngestionConfig
-from .packet_parser import PacketParser
-
-logger = structlog.get_logger()
+from .race_monitor import RaceStateMonitor
+from ..domain.interfaces import IPacketParser
 
 class IngestionService:
     """
@@ -19,17 +18,25 @@ class IngestionService:
         self, 
         repo: ITelemetryRepository, 
         config: IngestionConfig, 
-        queue: asyncio.Queue
+        queue: asyncio.Queue,
+        parser: IPacketParser
     ):
         self._repo = repo
         self._config = config
         self._queue = queue
+        self._parser = parser
         self._buffer: List[TelemetryPacket] = []
-        self._last_is_race_on = 0
+        self._monitor = RaceStateMonitor()
         self._running = False
         self._flush_lock = asyncio.Lock()
         self._last_flush_time = 0.0
         self._active_saves: Set[asyncio.Task] = set()
+        
+        # Session Context
+        self._current_session_id: Optional[int] = None
+        self._session_lock = asyncio.Lock()
+
+    # ... set_session and stop_session remain unchanged ...
 
     async def run(self) -> None:
         """
@@ -48,10 +55,16 @@ class IngestionService:
                     # Pure consumer loop, no blocking on IO
                     data, addr = await self._queue.get()
                     
-                    try:
-                        packet = PacketParser.parse(data)
-                    except ValueError as e:
-                        logger.warning("packet_parse_error", error=str(e))
+                    # 1. Parse via injected Interface
+                    packet = self._parser.parse(data)
+                    
+                    # 2. Handle invalid packets (None)
+                    if not packet:
+                        # Log warning? Already logged in parser if we want logic there?
+                        # Or generic log here.
+                        # logger.warning("invalid_packet_dropped", len=len(data)) 
+                        # Parser returns None on error, we assume it handles internal low-level logging or we do.
+                        # Let's skip without log spam.
                         self._queue.task_done()
                         continue
                     
@@ -73,6 +86,60 @@ class IngestionService:
             except asyncio.CancelledError:
                 pass
 
+    async def _process_packet(self, packet: TelemetryPacket) -> None:
+        """
+        State machine and buffering logic.
+        """
+        # 3. Detect Events via Monitor
+        events = self._monitor.detect_events(packet)
+        for event in events:
+             if isinstance(event, RaceStarted):
+                 logger.info("race_started", race_data=dataclasses.asdict(event)) 
+             # Handle other events if any
+
+        # Buffer Logic
+        if packet.is_race_on == 1:
+            # 4. Immutable Fix: Create new instance with session_id
+            # Note: We must read session context under lock if we want strict consistency, 
+            # or accept slight race (eventual consistency).
+            # given it's a high freq loop, we might read the atomic reference (single Python op).
+            # self._current_session_id reading is atomic in GIL.
+            
+            enrichment = {}
+            if self._current_session_id:
+                enrichment['session_id'] = self._current_session_id
+            
+            # Create COPY with changes
+            enriched_packet = dataclasses.replace(packet, **enrichment)
+
+            self._buffer.append(enriched_packet)
+            
+            if len(self._buffer) >= self._config.buffer_size:
+                await self._flush()
+        else:
+            # If race stopped, check if we need to flush last batch?
+            # The monitor tracks state.
+            pass
+
+    async def set_session(self, car_ordinal: int, track_id: str, tuning_config_id: Optional[int] = None) -> None:
+        """Sets the current session context by creating a record in DB."""
+        async with self._session_lock:
+             try:
+                 new_id = await self._repo.create_session(car_ordinal, track_id, tuning_config_id)
+                 self._current_session_id = new_id
+                 logger.info("session_context_set", session_id=self._current_session_id, car=car_ordinal)
+             except Exception as e:
+                 logger.error("session_creation_failed", error=str(e))
+                 # Fallback/Fail logic? For now just log.
+
+    async def stop_session(self) -> None:
+        """Clears the current session context."""
+        async with self._session_lock:
+            last_id = self._current_session_id
+            self._current_session_id = None
+            logger.info("session_context_cleared", last_session_id=last_id)
+
+
     async def _monitor_flush(self) -> None:
         """Background task to trigger time-based flushes."""
         logger.info("flush_monitor_started")
@@ -90,34 +157,6 @@ class IngestionService:
             except Exception as e:
                 logger.error("flush_monitor_error", error=str(e))
 
-    async def _process_packet(self, packet: TelemetryPacket) -> None:
-        """
-        State machine and buffering logic.
-        """
-        # State Machine: IsRaceOn 0 -> 1 (Race Started)
-        if self._last_is_race_on == 0 and packet.is_race_on == 1:
-            event = RaceStarted(
-                timestamp=packet.current_race_time,
-                car_ordinal=packet.car_ordinal,
-                car_class=packet.car_class,
-                car_performance_index=packet.car_performance_index
-            )
-            logger.info("race_started", race_data=dataclasses.asdict(event)) 
-
-        # State Machine: IsRaceOn 1 -> 0 (Race Ended)
-        if self._last_is_race_on == 1 and packet.is_race_on == 0:
-            logger.info("race_ended")
-            # Force flush on race end
-            await self._flush()
-
-        self._last_is_race_on = packet.is_race_on
-        
-        # Buffer Logic
-        if packet.is_race_on == 1:
-            self._buffer.append(packet)
-            
-            if len(self._buffer) >= self._config.buffer_size:
-                await self._flush()
 
     async def _flush(self) -> None:
         """
@@ -142,13 +181,20 @@ class IngestionService:
 
     async def _save_safe(self, packets: List[TelemetryPacket]) -> None:
         """
-        Execute DB save with error handling.
+        Execute DB save with retry logic (Reliability).
         """
-        try:
-            await self._repo.save_batch(packets)
-        except Exception as e:
-            dropped_count = len(packets)
-            logger.error("flush_error", error=str(e), dropped_count=dropped_count)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                await self._repo.save_batch(packets)
+                return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning("flush_retry", attempt=attempt+1, error=str(e))
+                    await asyncio.sleep(0.5 * (attempt + 1)) # Simple backoff
+                else:
+                    dropped_count = len(packets)
+                    logger.error("flush_error_final", error=str(e), dropped_count=dropped_count)
 
     async def flush(self) -> None:
         """

@@ -90,3 +90,4 @@ class TelemetryPacket:
     steer: int
     normalized_driving_line: int
     normalized_ai_brake_difference: int
+    session_id: int | None = None

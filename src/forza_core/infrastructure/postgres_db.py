@@ -31,3 +31,15 @@ class PostgresRepository(ITelemetryRepository):
                 timeout=10
             )
 
+    async def create_session(self, car_ordinal: int, track_id: str, tuning_config_id: int | None = None) -> int:
+        query = """
+            INSERT INTO sessions (car_ordinal, track_id, tuning_config_id)
+            VALUES ($1, $2, $3)
+            RETURNING id
+        """
+        async with self._pool.acquire() as conn:
+            # Assuming 'sessions' table exists. If not, this will fail at runtime, 
+            # but per instructions we assume structure.
+            session_id = await conn.fetchval(query, car_ordinal, track_id, tuning_config_id)
+            return session_id
+
