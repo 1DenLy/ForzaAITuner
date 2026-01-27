@@ -68,6 +68,14 @@ class AIConfig(BaseModel):
     enable_inference: bool = Field(default=True, description="Enable AI inference")
     device: str = Field(default="cpu", description="Inference device (cpu/cuda)")
 
+#  UI config
+class UIConfig(BaseModel):
+    """UI config"""
+    # Relative path from project root
+    main_window_path: Path = Field(
+        default=Path("src/presentation/assets/api_v1.0.ui"),
+        description="Path to main window UI file"
+    )
 
 #  Main Settings
 class Settings(BaseSettings):
@@ -89,6 +97,7 @@ class Settings(BaseSettings):
     network: NetworkConfig = Field(default_factory=NetworkConfig)
     db: DatabaseConfig = Field(default_factory=DatabaseConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
+    ui: UIConfig = Field(default_factory=UIConfig)
 
 
 @lru_cache
