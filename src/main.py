@@ -2,8 +2,14 @@ import sys
 import logging
 import signal
 from pathlib import Path
+
 from PySide6.QtWidgets import QApplication
-from src.presentation.views.main_window import BaseWindow
+from PySide6.QtCore import QTimer
+
+from src.presentation.views.main_window import MainWindow
+from src.presentation.viewmodels.main_vm import MainViewModel
+from src.presentation.services.config_validator import ConfigValidator
+from src.forza_core.application.core_facade import RealCoreFacade
 from src.config import get_settings, BASE_DIR
 
 # Configure basic logging
@@ -12,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 def setup_environment():
     """Sets up the environment for the application."""
-    # Ensure project root is in sys.path
     if str(BASE_DIR) not in sys.path:
         sys.path.insert(0, str(BASE_DIR))
 
@@ -24,53 +29,51 @@ def handle_sigint(signum, frame):
 def main():
     """
     Main entry point for the application.
-    Bootstraps the QApplication and the main window.
+    Bootstraps the QApplication and the main window with MVVM dependencies.
     """
-    # Setup environment
     setup_environment()
-    
-    # Handle Ctrl+C
     signal.signal(signal.SIGINT, handle_sigint)
-    # Allow python to process signals periodically
-    timer = None 
 
     try:
-        # Load configuration (Fail-Safe check)
+        # 1. Load Configuration
         try:
             settings = get_settings()
             logger.info(f"Configuration loaded successfully. Environment: {settings.env}")
         except Exception as e:
-             logger.critical(f"Failed to load configuration: {e}")
-             sys.exit(1)
+            logger.critical(f"Failed to load configuration: {e}")
+            sys.exit(1)
 
-        # Initialize the Application
+        # 2. Initialize Application
         app = QApplication(sys.argv)
         app.setApplicationName("ForzaAITuner")
-        app.setApplicationVersion("1.0.0") # You might want to pull this from config or pyproject.toml
+        app.setApplicationVersion("1.0.0")
 
-        # Resolve UI path from settings
-        # BASE_DIR is resolved in config.py securely
+        # 3. Resolve Resources
         ui_path = BASE_DIR / settings.ui.main_window_path
-
-        logger.info(f"Starting application from: {BASE_DIR}")
-        logger.info(f"Loading UI from: {ui_path}")
-
         if not ui_path.exists():
             logger.critical(f"UI file not found at: {ui_path}")
             sys.exit(1)
 
-        # Initialize Main Window
-        window = BaseWindow(str(ui_path))
+        # 4. Initialize Dependencies (Services)
+        logger.info("Initializing services...")
+        core_facade = RealCoreFacade()
+        config_validator = ConfigValidator()
+
+        # 5. Initialize ViewModel
+        logger.info("Initializing ViewModel...")
+        main_vm = MainViewModel(core_facade, config_validator)
+
+        # 6. Initialize View (Window)
+        logger.info("Initializing View...")
+        window = MainWindow(str(ui_path), main_vm)
         window.show()
 
-        # Enable checking for Ctrl-C by using a timer to wake up the Qt event loop
-        # This is a common workaround for PySide/PyQt to play nice with Python signals
-        from PySide6.QtCore import QTimer
+        # 7. Setup Signal Handling Helper
         timer = QTimer()
         timer.timeout.connect(lambda: None)
         timer.start(500)
 
-        # Execute Application
+        # 8. Execute
         sys.exit(app.exec())
 
     except Exception as e:
