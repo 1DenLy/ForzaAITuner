@@ -5039,3 +5039,4 @@ venv/Scripts/pyside6-qtpy2cpp.exe
 venv/Scripts/pyside6-rcc.exe
 venv/Scripts/pyside6-svgtoqml.exe
 venv/Scripts/pyside6-uic.exe
+pytest.ini
