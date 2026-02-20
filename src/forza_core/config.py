@@ -13,6 +13,3 @@ class IngestionConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-
-    buffer_size: int = Field(default=60, description="Number of packets to buffer before flush")
-    flush_interval_sec: float = Field(default=1.0, description="Time interval to flush buffer if not full")

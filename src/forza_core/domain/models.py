@@ -1,5 +1,8 @@
 import dataclasses
 
+SessionId = int
+TuningConfigId = int
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class TelemetryPacket:
     """
@@ -66,9 +69,9 @@ class TelemetryPacket:
     position_x: float
     position_y: float
     position_z: float
-    speed: float
-    power: float
-    torque: float
+    speed_mps: float
+    power_watts: float
+    torque_nm: float
     tire_temp_fl: float
     tire_temp_fr: float
     tire_temp_rl: float
@@ -90,4 +93,4 @@ class TelemetryPacket:
     steer: int
     normalized_driving_line: int
     normalized_ai_brake_difference: int
-    session_id: int | None = None
+    session_id: SessionId | None = None

@@ -1,22 +1,14 @@
 import struct
 from ..domain.models import TelemetryPacket
+from ..domain.interfaces import IPacketParser
 
-class PacketParser:
+class PacketParser(IPacketParser):
     """
     Parses binary telemetry data into TelemetryPacket objects.
     """
 
-    
-    # Format for Data Out (324 bytes) - 'Sled' format + Dash extensions
-    _FORMAT_DATA_OUT = (
-        '<'
-        'iIffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffHBBBBBbBb'
-        # 12 bytes padding at end if 324? Actually Sled is 324. Dash is 311.
-        # The struct format string above corresponds to Sled structure mapped to fields.
-    )
-
-    # Simplified approach: We assume the existing huge format string covers the 324 byte structure minus padding logic?
-    # Let's reuse the existing huge string but be smart about length.
+    _SIZE_SLED = 324
+    _SIZE_DASH = 311
     
     _FORMAT_V1 = (
         '<'
@@ -67,28 +59,15 @@ class PacketParser:
         'b'    # s8 AIBrakeDiff
     )
     
-    @classmethod
-    def parse(cls, data: bytes) -> TelemetryPacket | None:
+    def parse(self, data: bytes) -> TelemetryPacket | None:
         length = len(data)
         
-        # Support V1 'Sled' / 'Data Out' (324 bytes) and 'Dash' (311 bytes)
-        # 324 is typical for 'Data Out' config in game.
-        if length == 324:
-             # Standard Data Out
-             pass
-        elif length == 311:
-             # Dash format (missing some padding or extra fields? Actually Dash is subset or just different packing)
-             # The existing FORMAT maps to 311 bytes actually. (calc: 4+4+... = 311?)
-             # Let's trust struct.unpack_from will handle prefix.
-             pass
-        else:
-             # Invalid length
-             # logger is not imported here, but we should return None as per contract
-             return None
+        if length not in (self._SIZE_SLED, self._SIZE_DASH):
+            return None
 
         try:
              # If 324, ignore last 13 bytes to match 311 format
-             unpacked = struct.unpack_from(cls._FORMAT_V1, data)
+             unpacked = struct.unpack_from(self._FORMAT_V1, data)
              
              return TelemetryPacket(
                 is_race_on=unpacked[0],
@@ -152,9 +131,9 @@ class PacketParser:
                 position_x=unpacked[58],
                 position_y=unpacked[59],
                 position_z=unpacked[60],
-                speed=unpacked[61],
-                power=unpacked[62],
-                torque=unpacked[63],
+                speed_mps=unpacked[61],
+                power_watts=unpacked[62],
+                torque_nm=unpacked[63],
                 tire_temp_fl=unpacked[64],
                 tire_temp_fr=unpacked[65],
                 tire_temp_rl=unpacked[66],
