@@ -1,0 +1,54 @@
+import structlog
+
+from desktop_client.backend_sync.local_buffer import LocalBuffer
+from desktop_client.backend_sync.sync_worker import SyncWorker
+from desktop_client.forza_core.application.core_facade import RealCoreFacade
+
+logger = structlog.get_logger(__name__)
+
+class TelemetryManager:
+    """
+    Менеджер сессии (Session Manager).
+    Единая точка управления стартом и остановкой гонки для UI.
+    Связывает ядро Форзы, локальный буфер и HTTP-воркер в единый конвейер.
+    """
+
+    def __init__(self, api_url: str):
+        self.api_url = api_url
+        
+        # 1. Создаем локальный буфер
+        self.local_buffer = LocalBuffer()
+        
+        # 2. Создаем HTTP-воркер, который будет вычитывать данные из буфера
+        self.sync_worker = SyncWorker(buffer=self.local_buffer, api_url=self.api_url)
+        
+        # 3. Создаем фасад ядра Forza, передав ему буфер в качестве утиного out_queue
+        # Утиная типизация позволяет нам передать LocalBuffer туда, где ожидается asyncio.Queue,
+        # если LocalBuffer реализует метод put_nowait(), как это ожидается IngestionService.
+        self.core_facade = RealCoreFacade(out_queue=self.local_buffer)
+
+    async def start_session(self) -> None:
+        """
+        Запускает конвейер сбора и отправки телеметрии.
+        Сначала стартует воркер, затем ядро начинает писать в буфер.
+        """
+        logger.info("Starting telemetry session pipeline...")
+        # Запускаем асинхронный метод start() у SyncWorker
+        await self.sync_worker.start()
+        
+        # Вызываем обычный (синхронный) метод start_tracking() у RealCoreFacade
+        self.core_facade.start_tracking()
+        logger.info("Telemetry session pipeline started successfully.")
+
+    async def stop_session(self) -> None:
+        """
+        Останавливает конвейер.
+        Сначала ядро перестает писать данные, затем воркер делает Force Flush.
+        """
+        logger.info("Stopping telemetry session pipeline...")
+        # Вызываем stop_tracking() у RealCoreFacade (чтобы игра перестала писать в буфер)
+        self.core_facade.stop_tracking()
+        
+        # Дожидаемся выполнения метода stop() у SyncWorker (выгребает остатки и отправляет)
+        await self.sync_worker.stop()
+        logger.info("Telemetry session pipeline stopped successfully.")

@@ -1,4 +1,5 @@
 annotated-types==0.7.0
+aiohttp==3.13.3
 asyncpg==0.31.0
 colorama==0.4.6
 iniconfig==2.3.0

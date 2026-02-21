@@ -3,11 +3,11 @@ import logging
 import threading
 from typing import Optional
 
-from src.presentation.interfaces.protocols import ICoreFacade
+from desktop_client.presentation.interfaces.protocols import ICoreFacade
 from .ingestion_service import IngestionService
 from .packet_parser import PacketParser
-from ..infrastructure.udp_transport import UdpListener
-from src.config import get_settings
+from desktop_client.infrastructure.udp_transport import UdpListener
+from desktop_client.config import get_settings
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)
