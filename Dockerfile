@@ -11,8 +11,13 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Создаем виртуальное окружение
+RUN python -m venv /opt/venv
+# Активируем виртуальное окружение для последующих команд
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
 FROM python:3.12-slim as runtime
@@ -27,19 +32,17 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем пакеты Python
-COPY --from=builder /root/.local /home/appuser/.local
+# Копируем виртуальное окружение из builder с правильными правами
+COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
 
 # Настраиваем окружение
-ENV PATH=/home/appuser/.local/bin:$PATH
+# Добавляем путь к бинарникам venv в начало PATH
+ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Копируем код приложения
-COPY ./src ./src
-
-# Права доступа (на всякий случай)
-RUN chown -R appuser:appuser /app
+# Копируем код приложения с правильными правами
+COPY --chown=appuser:appuser ./src ./src
 
 USER appuser
 
