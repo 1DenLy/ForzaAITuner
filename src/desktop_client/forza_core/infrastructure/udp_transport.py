@@ -4,11 +4,11 @@ import time
 from typing import Optional, Tuple
 
 try:
-    from typing import Override # Python 3.12+
+    from typing import override
 except ImportError:
-    from typing_extensions import Override
+    from typing_extensions import override
 
-logger = logging.getLogger(__name__) # Use standard logger which is hooked
+logger = logging.getLogger(__name__)
 
 class UdpListener(asyncio.DatagramProtocol):
     """
@@ -18,11 +18,11 @@ class UdpListener(asyncio.DatagramProtocol):
         self.queue = queue
         self._last_error_log_time = 0.0
 
-    @Override
+    @override
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         logger.info("udp_transport_connected")
 
-    @Override
+    @override
     def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         """
         Receive datagram and push to queue. Zero-latency.
@@ -44,6 +44,6 @@ class UdpListener(asyncio.DatagramProtocol):
                 logger.warning(f"udp_receive_error: {e}")
                 self._last_error_log_time = now
 
-    @Override
+    @override
     def error_received(self, exc: Exception) -> None:
         logger.error(f"udp_transport_error: {exc}")

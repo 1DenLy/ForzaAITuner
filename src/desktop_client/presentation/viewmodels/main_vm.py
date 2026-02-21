@@ -1,9 +1,9 @@
 from PySide6.QtCore import QObject, Signal, Slot
 from typing import Optional
 
-from src.presentation.interfaces.protocols import ICoreFacade, IConfigValidator
-from src.presentation.state.app_state import ApplicationState
-from src.presentation.resources.strings import UIStrings
+from desktop_client.presentation.interfaces.protocols import ICoreFacade, IConfigValidator
+from desktop_client.presentation.state.app_state import ApplicationState
+from desktop_client.presentation.resources.strings import UIStrings
 
 class MainViewModel(QObject):
     """

@@ -6,8 +6,8 @@ from typing import Optional
 from desktop_client.presentation.interfaces.protocols import ICoreFacade
 from .ingestion_service import IngestionService
 from .packet_parser import PacketParser
-from desktop_client.infrastructure.udp_transport import UdpListener
-from desktop_client.config import get_settings
+from desktop_client.forza_core.infrastructure.udp_transport import UdpListener
+from config import get_settings
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)

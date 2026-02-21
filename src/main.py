@@ -6,11 +6,11 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer
 
-from src.presentation.views.main_window import MainWindow
-from src.presentation.viewmodels.main_vm import MainViewModel
-from src.presentation.services.config_validator import ConfigValidator
-from src.forza_core.application.core_facade import RealCoreFacade
-from src.config import get_settings, BASE_DIR
+from desktop_client.presentation.views.main_window import MainWindow
+from desktop_client.presentation.viewmodels.main_vm import MainViewModel
+from desktop_client.presentation.services.config_validator import ConfigValidator
+from desktop_client.forza_core.application.core_facade import RealCoreFacade
+from config import get_settings, BASE_DIR
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

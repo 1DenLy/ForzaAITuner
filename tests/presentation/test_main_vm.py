@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from src.presentation.viewmodels.main_vm import MainViewModel
-from src.presentation.state.app_state import ApplicationState
-from src.presentation.interfaces.protocols import ICoreFacade, IConfigValidator
+from desktop_client.presentation.viewmodels.main_vm import MainViewModel
+from desktop_client.presentation.state.app_state import ApplicationState
+from desktop_client.presentation.interfaces.protocols import ICoreFacade, IConfigValidator
 
 @pytest.fixture
 def mock_facade():

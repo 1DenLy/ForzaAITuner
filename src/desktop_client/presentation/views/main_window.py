@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QMainWindow, QFileDialog, QMessageBox
 from PySide6.QtCore import QObject
-from src.presentation.services.ui_loader_service import UiLoaderService
-from src.presentation.viewmodels.main_vm import MainViewModel
-from src.presentation.state.app_state import ApplicationState
-from src.presentation.resources.strings import UIStrings
+from desktop_client.presentation.services.ui_loader_service import UiLoaderService
+from desktop_client.presentation.viewmodels.main_vm import MainViewModel
+from desktop_client.presentation.state.app_state import ApplicationState
+from desktop_client.presentation.resources.strings import UIStrings
 
 class BaseWindow(QMainWindow):
     """

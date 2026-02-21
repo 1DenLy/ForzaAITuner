@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock
-from forza_core.application.race_monitor import RaceStateMonitor
-from forza_core.domain.events import RaceStarted
-from forza_core.domain.models import TelemetryPacket
+from desktop_client.forza_core.application.race_monitor import RaceStateMonitor
+from desktop_client.forza_core.domain.events import RaceStarted
+from desktop_client.forza_core.domain.models import TelemetryPacket
 
 @pytest.fixture
 def monitor():

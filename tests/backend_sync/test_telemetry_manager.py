@@ -18,15 +18,15 @@ def manager():
 
 @pytest.mark.asyncio
 async def test_start_session(manager):
-    await manager.start_session()
-    
-    manager.sync_worker.start.assert_awaited_once()
-    manager.core_facade.start_tracking.assert_called_once()
-    
     # Check the order: start worker, then start tracking
     parent = MagicMock()
     parent.attach_mock(manager.sync_worker.start, "worker_start")
     parent.attach_mock(manager.core_facade.start_tracking, "facade_start")
+
+    await manager.start_session()
+    
+    manager.sync_worker.start.assert_awaited_once()
+    manager.core_facade.start_tracking.assert_called_once()
     
     parent.assert_has_calls([
         call.worker_start(),

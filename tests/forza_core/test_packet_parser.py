@@ -1,5 +1,5 @@
 import pytest
-from forza_core.application.packet_parser import PacketParser
+from desktop_client.forza_core.application.packet_parser import PacketParser
 
 @pytest.fixture
 def parser():
