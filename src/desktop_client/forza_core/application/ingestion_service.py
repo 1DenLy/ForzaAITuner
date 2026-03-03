@@ -35,21 +35,20 @@ class IngestionService:
             while self._running:
                 try:
                     data, addr = await self._queue.get()
-                    
+                except asyncio.CancelledError:
+                    raise
+
+                try:
                     packet = self._parser.parse(data)
-                    
-                    if not packet:
-                        self._queue.task_done()
-                        continue
-                    
-                    await self._process_packet(packet)
-                    self._queue.task_done()
-                    
+                    if packet:
+                        await self._process_packet(packet)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
                     logger.error("ingestion_service_error", error=str(e), exc_info=True)
                     await asyncio.sleep(0.1)
+                finally:
+                    self._queue.task_done()
         except asyncio.CancelledError:
             logger.info("ingestion_service_cancelled")
         finally:
