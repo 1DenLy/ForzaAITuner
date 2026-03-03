@@ -8,14 +8,7 @@ from typing import Callable, Generic, Optional, TypeVar, Any, Protocol
 logger = logging.getLogger(__name__)
 
 from desktop_client.application.exceptions import ConfigLockedError
-
-class IConfigRepository(Protocol):
-    """Protocol defining the interface for a configuration repository."""
-    def load_raw_data(self) -> dict[str, Any]:
-        ...
-        
-    def save_raw_data(self, data: dict[str, Any]) -> None:
-        ...
+from desktop_client.application.ports import IConfigRepository
 
 class PydanticModelProtocol(Protocol):
     """Protocol matching Pydantic (or similar) models that can dump their state to a dict."""
