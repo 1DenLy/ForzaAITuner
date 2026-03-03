@@ -40,6 +40,10 @@ class Gearing(BaseTuningModel):
     final_drive: float = Field(..., gt=0, description="Final drive ratio")
     gears: Annotated[list[GearRatio], Field(min_length=1, description="Gear ratios (1st, 2nd, ...)")]
 
+
+# Default Gearing used when no UI widgets collect gear data yet.
+_DEFAULT_GEARING = Gearing(final_drive=0.1, gears=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+
 class Alignment(BaseTuningModel):
     """Wheel alignment settings."""
     camber_front_deg: float = Field(..., ge=-5.0, le=5.0, description="Front camber")
@@ -119,7 +123,10 @@ class TuningSetup(BaseTuningModel):
     session: Session = Field(..., description="Session settings")
     info: CarInfo = Field(..., description="Car specifications")
     tires: Tires = Field(..., description="Tire settings")
-    gearing: Gearing = Field(..., description="Gearing settings")
+    # gearing has no UI widgets yet — kept optional so ConfigDialog can be
+    # saved without gear-ratio inputs.  Remove the default once the gearing
+    # tab is wired up in TuningMapper.
+    gearing: Gearing = Field(default=_DEFAULT_GEARING, description="Gearing settings")
     alignment: Alignment = Field(..., description="Wheel alignment")
     anti_roll_bars: AntiRollBars = Field(..., description="Anti-roll bars")
     suspension: Suspension = Field(..., description="Suspension settings")

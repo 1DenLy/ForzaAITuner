@@ -1,4 +1,7 @@
 import asyncio
+import logging
+
+_logger = logging.getLogger(__name__)
 from PySide6.QtCore import QObject, Signal
 
 from desktop_client.presentation.interfaces.protocols import ITelemetryManager
@@ -57,10 +60,13 @@ class MainViewModel(QObject):
             # Expected domain errors: network/IO problems or bad telemetry config.
             self.error_occurred.emit(UIStrings.ERR_GENERIC.format(str(e)))
             self.app_state.session_state = SessionState.IDLE
-        except Exception:
-            # Unexpected exceptions (e.g. programming errors) must not be silenced.
+        except Exception as e:
+            # Unexpected programming error inside a fire-and-forget task.
+            # `raise` here would silently rot in the asyncio event loop —
+            # UI would never know and app would stay stuck in STARTING.
+            _logger.error("start_recording: unexpected error", exc_info=True)
+            self.error_occurred.emit(UIStrings.ERR_GENERIC.format(str(e)))
             self.app_state.session_state = SessionState.IDLE
-            raise
 
     async def stop_recording(self) -> None:
         """
@@ -75,10 +81,12 @@ class MainViewModel(QObject):
             # Expected domain errors during flush/stop.
             self.error_occurred.emit(UIStrings.ERR_GENERIC.format(str(e)))
             self.app_state.session_state = SessionState.IDLE
-        except Exception:
-            # Re-raise programming errors so they surface in logs/crash reporters.
+        except Exception as e:
+            # Unexpected programming error inside a fire-and-forget task.
+            # Same rationale as start_recording: surface via UI, not stderr.
+            _logger.error("stop_recording: unexpected error", exc_info=True)
+            self.error_occurred.emit(UIStrings.ERR_GENERIC.format(str(e)))
             self.app_state.session_state = SessionState.IDLE
-            raise
 
     def shutdown(self) -> None:
         """

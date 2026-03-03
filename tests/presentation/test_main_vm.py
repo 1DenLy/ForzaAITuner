@@ -84,10 +84,19 @@ async def test_start_recording_network_error_resets_state_and_emits_error(viewMo
 
 
 @pytest.mark.asyncio
-async def test_start_recording_unexpected_error_resets_state_and_raises(viewModel, mock_telemetry_manager):
+async def test_start_recording_unexpected_error_emits_error_and_resets_state(viewModel, mock_telemetry_manager):
+    """
+    Unexpected errors in fire-and-forget tasks must NOT re-raise (that would silently
+    rot in the asyncio event loop). Instead they must surface via error_occurred
+    so the UI can show a dialog, and state must be reset to IDLE.
+    """
     mock_telemetry_manager.start_session.side_effect = TypeError("NoneType is not iterable")
 
-    with pytest.raises(TypeError, match="NoneType is not iterable"):
-        await viewModel.start_recording()
+    mock_emit = MagicMock()
+    viewModel.error_occurred.connect(mock_emit)
+
+    await viewModel.start_recording()   # must NOT raise
 
     assert viewModel.app_state.session_state == SessionState.IDLE
+    mock_emit.assert_called_once()
+    assert "NoneType is not iterable" in mock_emit.call_args[0][0]
