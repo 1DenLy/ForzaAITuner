@@ -1,128 +1,137 @@
-from PySide6.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from PySide6.QtCore import QObject
-from desktop_client.presentation.services.ui_loader_service import UiLoaderService
-from desktop_client.presentation.viewmodels.main_vm import MainViewModel
-from desktop_client.presentation.state.app_state import ApplicationState
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QPushButton, QLabel
+from PySide6.QtCore import Slot
+
+from desktop_client.presentation.interfaces.protocols import IDialogService, IMainViewModel
+from desktop_client.presentation.state.config_state import ConfigState
+from desktop_client.presentation.state.session_state import SessionState
 from desktop_client.presentation.resources.strings import UIStrings
-
-class BaseWindow(QMainWindow):
-    """
-    Base window class that manages UI loading via UiLoaderService.
-    Encapsulates the loaded UI widget.
-    """
-    def __init__(self, ui_file_path: str):
-        super().__init__()
-        # Load the UI content
-        self._ui_widget = UiLoaderService.load_ui(ui_file_path)
-        
-        if isinstance(self._ui_widget, QMainWindow):
-             self.setCentralWidget(self._ui_widget)
-        else:
-             self.setCentralWidget(self._ui_widget)
-
-    @property
-    def ui(self):
-        """Access the raw loaded UI object."""
-        return self._ui_widget
-
-    def __getattr__(self, name):
-        """Delegate attribute access to the loaded UI object safely."""
-        if self._ui_widget:
-            if hasattr(self._ui_widget, name):
-                return getattr(self._ui_widget, name)
-            child = self._ui_widget.findChild(QObject, name)
-            if child:
-                return child
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+from desktop_client.presentation.services.ui_state_mapper import UIStateMapper, ButtonConfig
+from desktop_client.presentation.ui_gen.ui_main_window import Ui_MainWindow
 
 
-class MainWindow(BaseWindow):
+class MainWindow(QMainWindow):
     """
     Main Application Window.
-    Binds UI events to the MainViewModel.
+
+    Pure View in the MVVM pattern — contains zero business logic.
+    Depends on IMainViewModel abstraction (DIP), not on the concrete MainViewModel.
+    Uses AOT-compiled Ui_MainWindow for fast, type-safe UI setup.
     """
-    def __init__(self, ui_path: str, view_model: MainViewModel):
-        super().__init__(ui_path)
+
+    def __init__(self, view_model: IMainViewModel, dialog_service: IDialogService):
+        super().__init__()
         self._vm = view_model
-        
+        self._dialog_service = dialog_service
+
+        # Setup AOT-compiled UI
+        self._ui = Ui_MainWindow()
+        self._ui.setupUi(self)
+
+        # Explicit typed widget references (replaces findChild)
+        self.btn_config: QPushButton = self._ui.pushButton_Config
+        self.btn_start: QPushButton = self._ui.pushButton_Start
+        self.btn_settings: QPushButton = self._ui.pushButton_Settings
+        self.btn_exit: QPushButton = self._ui.pushButton_Exit
+        # label_3 is the "Status" label in Ui_MainWindow (objectName="label_3",
+        # retranslateUi sets its text to "Status"). Using a direct typed ref
+        # instead of getattr avoids the runtime-only duck-typing hack that
+        # mypy and other static analysers cannot verify.
+        self.lbl_status: QLabel = self._ui.label_3
+
         self._setup_connections()
-        self._update_ui_state(self._vm.state) # Initial state
+        self._update_session_ui(self._vm.app_state.session_state)   # initial render
+        self._update_config_ui(self._vm.app_state.config_state)     # initial render
+
+    # ------------------------------------------------------------------ #
+    #  Signal wiring                                                       #
+    # ------------------------------------------------------------------ #
 
     def _setup_connections(self):
-        # 1. View -> ViewModel
-        # Assuming UI has 'pushButton_Config' and 'pushButton_Start'
-        # We need to defensively check if they exist because UI is dynamic
-        if hasattr(self, 'pushButton_Config'):
-            self.pushButton_Config.clicked.connect(self._on_load_config_clicked)
-        
-        if hasattr(self, 'pushButton_Start'):
-            self.pushButton_Start.clicked.connect(self._on_toggle_session_clicked)
-        
-        if hasattr(self, 'pushButton_Exit'):
-            self.pushButton_Exit.clicked.connect(self.close)
+        # View → ViewModel
+        if self.btn_config:
+            self.btn_config.clicked.connect(self._on_load_config_clicked)
 
-        # 2. ViewModel -> View
-        self._vm.state_changed.connect(self._update_ui_state)
+        if self.btn_start:
+            self.btn_start.clicked.connect(self._on_toggle_session_clicked)
+
+        if self.btn_settings:
+            self.btn_settings.clicked.connect(self._on_settings_clicked)
+
+        if self.btn_exit:
+            self.btn_exit.clicked.connect(self.close)
+
+        # ViewModel → View
+        self._vm.app_state.session_state_changed.connect(self._update_session_ui)
+        self._vm.app_state.config_state_changed.connect(self._update_config_ui)
         self._vm.error_occurred.connect(self._show_error)
 
-    def _on_load_config_clicked(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, 
-            UIStrings.TITLE_SELECT_CONFIG, 
-            "", 
-            "JSON Files (*.json);;All Files (*)"
-        )
-        if file_path:
-            self._vm.load_config(file_path)
+    # ------------------------------------------------------------------ #
+    #  Slots → ViewModel                                                   #
+    # ------------------------------------------------------------------ #
 
+    @Slot()
+    def _on_load_config_clicked(self):
+        self._dialog_service.show_config_dialog()
+
+    @Slot()
+    def _on_settings_clicked(self):
+        self._dialog_service.show_settings_dialog()
+
+    @Slot()
     def _on_toggle_session_clicked(self):
         self._vm.toggle_session()
 
-    def _update_ui_state(self, state: ApplicationState):
+    # ------------------------------------------------------------------ #
+    #  Reactive state handlers (ViewModel → View)                         #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _apply_button_config(button: QPushButton | None, cfg: ButtonConfig) -> None:
+        """Applies a ButtonConfig to a QPushButton. Centralises button mutation."""
+        if button is None:
+            return
+        if cfg.text is not None:
+            button.setText(cfg.text)
+        button.setEnabled(cfg.enabled)
+
+    @Slot(SessionState)
+    def _update_session_ui(self, state: SessionState) -> None:
         """
-        Updates UI elements based on the current application state.
+        Updates UI elements based on the current session state.
+        OCP-compliant: no if/elif here — all logic lives in UIStateMapper.
+        Adding a new SessionState only requires updating UIStateMapper.
         """
-        # Example logic - adapt to actual UI element names
-        
-        # Update Status Label if exists
-        if hasattr(self, 'lbl_status'):
-            status_map = {
-                ApplicationState.IDLE: UIStrings.STATUS_IDLE,
-                ApplicationState.READY: UIStrings.STATUS_READY,
-                ApplicationState.RACING: UIStrings.STATUS_RACING,
-                ApplicationState.SAVING: UIStrings.STATUS_SAVING,
-                ApplicationState.ERROR: UIStrings.STATUS_ERROR
-            }
-            self.lbl_status.setText(status_map.get(state, ""))
+        self.lbl_status.setText(UIStateMapper.get_session_status_text(state))
 
-        # Update Buttons
-        if hasattr(self, 'pushButton_Start'):
-            if state == ApplicationState.RACING:
-                self.pushButton_Start.setText(UIStrings.BTN_STOP)
-                self.pushButton_Start.setEnabled(True)
-            elif state == ApplicationState.READY:
-                self.pushButton_Start.setText(UIStrings.BTN_START)
-                self.pushButton_Start.setEnabled(True)
-            else:
-                self.pushButton_Start.setEnabled(False) # Disable if IDLE or ERROR or SAVING
+        self._apply_button_config(
+            self.btn_start,
+            UIStateMapper.get_start_button_config(state, self._vm.app_state.config_state),
+        )
+        self._apply_button_config(
+            self.btn_config,
+            UIStateMapper.get_config_button_config(state),
+        )
 
-        if hasattr(self, 'pushButton_Config'):
-            # Disable config loading while racing
-            self.pushButton_Config.setEnabled(state not in (ApplicationState.RACING, ApplicationState.SAVING))
+    @Slot(ConfigState)
+    def _update_config_ui(self, state: ConfigState) -> None:
+        """
+        Updates UI elements based on the current config state.
+        Re-evaluates the start button using UIStateMapper to stay OCP-compliant.
+        """
+        self._apply_button_config(
+            self.btn_start,
+            UIStateMapper.get_start_button_config(self._vm.app_state.session_state, state),
+        )
 
-    def _show_error(self, message: str):
+    @Slot(str)
+    def _show_error(self, message: str) -> None:
         QMessageBox.critical(self, UIStrings.TITLE_ERROR, message)
 
+    # ------------------------------------------------------------------ #
+    #  Lifecycle                                                           #
+    # ------------------------------------------------------------------ #
+
     def closeEvent(self, event):
-        """
-        Handle Graceful Shutdown.
-        """
-        if self._vm.state == ApplicationState.RACING:
-            # If racing, we should stop first
-            # Option A: Block close, tell user to stop
-            # Option B: Auto-stop (Graceful)
-            self._vm.shutdown()
-            
-        # Ensure cleanup happens
+        """Graceful shutdown — delegates to ViewModel."""
         self._vm.shutdown()
         event.accept()

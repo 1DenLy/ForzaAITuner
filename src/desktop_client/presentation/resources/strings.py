@@ -19,6 +19,7 @@ class UIStrings:
     # Status Messages
     STATUS_IDLE = "Idle"
     STATUS_READY = "Ready to Start"
+    STATUS_STARTING = "Starting..."
     STATUS_RACING = "Session in Progress..."
     STATUS_SAVING = "Saving Data..."
     STATUS_ERROR = "Error Occurred"

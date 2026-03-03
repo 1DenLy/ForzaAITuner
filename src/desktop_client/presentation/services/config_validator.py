@@ -2,11 +2,17 @@ import json
 
 from pathlib import Path
 from typing import List
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from desktop_client.presentation.interfaces.protocols import IConfigValidator
 from desktop_client.presentation.resources.strings import UIStrings
-from desktop_client.forza_core.api.schemas import SessionStartRequest
+
+class DummyConfigSchema(BaseModel):
+    """
+    Stub schema for configuration validation.
+    Add required configuration fields here.
+    """
+    pass
 
 class ConfigValidator(IConfigValidator):
     def validate(self, file_path: str) -> List[str]:
@@ -21,7 +27,7 @@ class ConfigValidator(IConfigValidator):
                 data = json.load(f)
             
             # Validate against Pydantic model
-            SessionStartRequest(**data)
+            DummyConfigSchema(**data)
             
         except json.JSONDecodeError as e:
             errors.append(UIStrings.ERR_INVALID_JSON_FORMAT.format(str(e)))
