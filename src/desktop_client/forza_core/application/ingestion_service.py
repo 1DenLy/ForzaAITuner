@@ -67,7 +67,6 @@ class IngestionService:
                  logger.info("race_stopped", race_data=dataclasses.asdict(event))
 
         if packet.is_race_on == 1:
-            try:
-                self._out_queue.put_nowait(packet)
-            except asyncio.QueueFull:
-                pass  # ui_queue = asyncio.Queue(maxsize=1000)
+            accepted = self._out_queue.put_nowait(packet)
+            if not accepted:
+                logger.warning("out_queue_full_packet_dropped")

@@ -10,21 +10,25 @@ class LocalBuffer:
         self._pending_batch = []
         self._lock = threading.Lock()
 
-    def put_nowait(self, packet: Any) -> None:
+    def put_nowait(self, packet: Any) -> bool:
+        """Enqueue a packet. Returns False if the buffer is at capacity."""
         with self._lock:
+            if len(self._queue) >= self._maxsize:
+                return False
             self._queue.append(packet)
+            return True
 
     def take_batch(self, n: int) -> List[Any]:
         with self._lock:
             if self._pending_batch:
-                return self._pending_batch
-            
+                return list(self._pending_batch)  # shallow copy — caller cannot mutate internal state
+
             batch = []
             for _ in range(min(n, len(self._queue))):
                 batch.append(self._queue.popleft())
-                
+
             self._pending_batch = batch
-            return self._pending_batch
+            return list(self._pending_batch)  # shallow copy
 
     def commit(self) -> None:
         with self._lock:
@@ -39,7 +43,7 @@ class LocalBuffer:
         with self._lock:
             self._pending_batch.extend(self._queue)
             self._queue.clear()
-            return self._pending_batch
+            return list(self._pending_batch)  # shallow copy — caller cannot mutate internal state
 
     @property
     def size(self) -> int:
