@@ -6,6 +6,8 @@ pg_data/
 *.vsdx
 .idea/
 .vscode/
+# Runtime-generated config — must not be committed
+last_session_config.json
 venv/pyvenv.cfg
 venv/Lib/site-packages/pip/__init__.py
 venv/Lib/site-packages/pip/__main__.py
