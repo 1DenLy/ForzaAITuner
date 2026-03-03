@@ -8,14 +8,13 @@ from PySide6.QtWidgets import QApplication
 
 from desktop_client.presentation.views.main_window import MainWindow
 from desktop_client.presentation.viewmodels.main_vm import MainViewModel
-from desktop_client.presentation.services.config_validator import ConfigValidator
-from desktop_client.presentation.services.config_repository import ConfigRepository
 from desktop_client.presentation.services.dialog_service import DialogService
 from desktop_client.services.telemetry_manager import TelemetryManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
 from desktop_client.application.config_state_manager import ConfigStateManager
 from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
 from desktop_client.domain.tuning import TuningSetup
+from desktop_client.infrastructure.local_config_repository import LocalConfigRepository
 from config import get_settings, BASE_DIR
 
 # Configure basic logging
@@ -44,16 +43,15 @@ async def async_main():
 
     # 3. Initialize Dependencies (Services)
     logger.info("Initializing services...")
-    config_validator = ConfigValidator()
-    config_repository = ConfigRepository()
     telemetry_manager = TelemetryManager(api_url=settings.network.api_url)
 
     # 4. Initialize ViewModels
     logger.info("Initializing ViewModels...")
-    main_vm = MainViewModel(config_validator, config_repository, telemetry_manager)
+    main_vm = MainViewModel(telemetry_manager)
     
     app_config_validator = ConfigValidatorService(TuningSetup)
-    app_config_state_manager = ConfigStateManager(config_repository)
+    local_config_repo = LocalConfigRepository(BASE_DIR)
+    app_config_state_manager = ConfigStateManager(local_config_repo)
     app_config_state_manager.initialize(TuningSetup.model_validate)
     config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
 
