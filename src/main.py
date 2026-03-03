@@ -54,6 +54,7 @@ async def async_main():
     
     app_config_validator = ConfigValidatorService(TuningSetup)
     app_config_state_manager = ConfigStateManager(config_repository)
+    app_config_state_manager.initialize(TuningSetup.model_validate)
     config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
 
     # 5. Initialize Dialog Services and View (Window)

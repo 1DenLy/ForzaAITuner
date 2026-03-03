@@ -1,8 +1,11 @@
 """
 State management module for application configuration.
 """
+import logging
 import threading
 from typing import Callable, Generic, Optional, TypeVar, Any, Protocol
+
+logger = logging.getLogger(__name__)
 
 from desktop_client.application.exceptions import ConfigLockedError
 
@@ -41,6 +44,33 @@ class ConfigStateManager(Generic[TModel]):
         self.is_recording_session: bool = False
         self._subscribers: list[Callable[[TModel], None]] = []
         self._lock = threading.RLock()
+
+    def initialize(self, model_factory: Callable[[dict[str, Any]], TModel]) -> None:
+        """
+        Loads the last persisted configuration from the repository and sets it as the
+        current state.  Must be called once after construction, before the UI starts.
+
+        If the repository contains no data or the data is invalid, the error is logged
+        and ``_current_config`` remains ``None`` so the UI can fall back to domain defaults.
+
+        Args:
+            model_factory: A callable that accepts a raw ``dict`` and returns a validated
+                           ``TModel`` instance (e.g. ``TuningSetup.model_validate``).
+        """
+        with self._lock:
+            try:
+                raw_data = self.repository.load_raw_data()
+                if raw_data:
+                    self._current_config = model_factory(raw_data)
+                    logger.info("ConfigStateManager: persisted configuration loaded successfully.")
+                else:
+                    logger.info("ConfigStateManager: repository is empty, starting with defaults.")
+            except Exception as exc:
+                logger.warning(
+                    "ConfigStateManager: failed to load persisted configuration — "
+                    "falling back to defaults. Reason: %s",
+                    exc,
+                )
 
     def subscribe(self, callback: Callable[[TModel], None]) -> None:
         """

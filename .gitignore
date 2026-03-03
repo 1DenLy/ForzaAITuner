@@ -5279,3 +5279,4 @@ venv/Lib/site-packages/pytestqt/utils.py
 venv/Lib/site-packages/pytestqt/wait_signal.py
 .idea/PythonProject.iml
 tmp_names.txt
+.idea/PythonProject.iml
