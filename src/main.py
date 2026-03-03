@@ -55,6 +55,24 @@ async def async_main():
     app_config_state_manager.initialize(TuningSetup.model_validate)
     config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
 
+    # ── Reactive config-state bridge ────────────────────────────────────────
+    # When ConfigStateManager gets a new valid config (either on cold-start or
+    # after the user saves the ConfigDialog), MainViewModel must know so it can
+    # unlock the "Start Session" button.
+
+    from desktop_client.presentation.state.config_state import ConfigState
+
+    def _on_config_updated(_new_config) -> None:
+        """Subscriber: called by ConfigStateManager after every successful save."""
+        main_vm.app_state.config_state = ConfigState.READY
+
+    app_config_state_manager.subscribe(_on_config_updated)
+
+    # Cold-start: config was already on disk — promote state immediately.
+    if app_config_state_manager.get_config() is not None:
+        main_vm.app_state.config_state = ConfigState.READY
+        logger.info("Cold-start: persisted config found — config_state set to READY.")
+
     # 5. Initialize Dialog Services and View (Window)
     logger.info("Initializing View...")
     dialog_service = DialogService(main_vm, config_vm)
