@@ -23,8 +23,8 @@ class TelemetryManager:
         self.sync_worker = SyncWorker(buffer=self.local_buffer, api_url=self.api_url)
         
         # 3. Создаем фасад ядра Forza, передав ему буфер в качестве утиного out_queue
-        # Утиная типизация позволяет нам передать LocalBuffer туда, где ожидается asyncio.Queue,
-        # если LocalBuffer реализует метод put_nowait(), как это ожидается IngestionService.
+        # LocalBuffer реализует интерфейс IOutQueue (в частности, метод put_nowait()), 
+        # который ожидается слоем forza_core (RealCoreFacade/IngestionService).
         self.core_facade = RealCoreFacade(out_queue=self.local_buffer)
 
     async def start_session(self) -> None:

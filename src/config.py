@@ -20,6 +20,7 @@ class NetworkConfig(BaseModel):
     """UDP network config"""
     host: str = Field(default="127.0.0.1", description="IP address to bind")
     port: int = Field(default=5300, description="Forza UDP Port")
+    api_url: str = Field(default="http://localhost:8000/api", description="Backend API URL for telemetry")
 
 
 #  Database config
@@ -62,7 +63,7 @@ class DatabaseConfig(BaseModel):
 class AIConfig(BaseModel):
     """AI config"""
     model_path: Path = Field(
-        default=Path("src/models/v1_tuner.onnx"),
+        default=Path("src/desktop_client/models/v1_tuner.onnx"),
         description="Path to ONNX model file"
     )
     enable_inference: bool = Field(default=True, description="Enable AI inference")
@@ -73,8 +74,16 @@ class UIConfig(BaseModel):
     """UI config"""
     # Relative path from project root
     main_window_path: Path = Field(
-        default=Path("src/presentation/assets/api_v1.0.ui"),
+        default=Path("src/desktop_client/presentation/assets/api_v1.1.ui"),
         description="Path to main window UI file"
+    )
+    config_dialog_path: Path = Field(
+        default=Path("src/desktop_client/presentation/assets/config_dialog.ui"),
+        description="Path to config UI file"
+    )
+    settings_dialog_path: Path = Field(
+        default=Path("src/desktop_client/presentation/assets/settings_dialog.ui"),
+        description="Path to settings UI file"
     )
 
 #  Main Settings

@@ -1,15 +1,21 @@
 import sys
+import asyncio
 import logging
 import signal
-from pathlib import Path
 
+import qasync
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer
 
 from desktop_client.presentation.views.main_window import MainWindow
 from desktop_client.presentation.viewmodels.main_vm import MainViewModel
 from desktop_client.presentation.services.config_validator import ConfigValidator
-from desktop_client.forza_core.application.core_facade import RealCoreFacade
+from desktop_client.presentation.services.config_repository import ConfigRepository
+from desktop_client.presentation.services.dialog_service import DialogService
+from desktop_client.services.telemetry_manager import TelemetryManager
+from desktop_client.application.config_validator_service import ConfigValidatorService
+from desktop_client.application.config_state_manager import ConfigStateManager
+from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
+from desktop_client.domain.tuning import TuningSetup
 from config import get_settings, BASE_DIR
 
 # Configure basic logging
@@ -21,64 +27,82 @@ def setup_environment():
     if str(BASE_DIR) not in sys.path:
         sys.path.insert(0, str(BASE_DIR))
 
-def handle_sigint(signum, frame):
-    """Handles KeyboardInterrupt (Ctrl+C)."""
-    logger.info("Received SIGINT (Ctrl+C). Exiting...")
-    QApplication.quit()
+async def async_main():
+    """
+    Async main entry point for the application.
+    Bootstraps the QApplication and the main window with MVVM dependencies.
+    Runs inside the unified qasync Qt+asyncio event loop.
+    """
+    # 1. Load Configuration
+    try:
+        settings = get_settings()
+        logger.info(f"Configuration loaded successfully. Environment: {settings.env}")
+    except Exception as e:
+        logger.critical(f"Failed to load configuration: {e}")
+        sys.exit(1)
+
+
+    # 3. Initialize Dependencies (Services)
+    logger.info("Initializing services...")
+    config_validator = ConfigValidator()
+    config_repository = ConfigRepository()
+    telemetry_manager = TelemetryManager(api_url=settings.network.api_url)
+
+    # 4. Initialize ViewModels
+    logger.info("Initializing ViewModels...")
+    main_vm = MainViewModel(config_validator, config_repository, telemetry_manager)
+    
+    app_config_validator = ConfigValidatorService(TuningSetup)
+    app_config_state_manager = ConfigStateManager(config_repository)
+    config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
+
+    # 5. Initialize Dialog Services and View (Window)
+    logger.info("Initializing View...")
+    dialog_service = DialogService(main_vm, config_vm)
+    window = MainWindow(main_vm, dialog_service)
+    dialog_service.set_main_window(window)
+    window.show()
+
+    # 6. Wait for the Qt application to exit.
+    # asyncio.get_event_loop().run_forever() is managed by QEventLoop below.
+    # We use a Future to keep the coroutine alive until the app quits.
+    future = asyncio.get_event_loop().create_future()
+
+    def on_app_quit():
+        if not future.done():
+            future.set_result(None)
+
+    QApplication.instance().aboutToQuit.connect(on_app_quit)
+    await future
+
 
 def main():
     """
-    Main entry point for the application.
-    Bootstraps the QApplication and the main window with MVVM dependencies.
+    Synchronous entry point.
+    Creates QApplication and installs the qasync event loop to unify
+    Qt's and asyncio's event loops into a single cooperative loop.
     """
     setup_environment()
-    signal.signal(signal.SIGINT, handle_sigint)
+
+    app = QApplication(sys.argv)
+    app.setApplicationName("ForzaAITuner")
+    app.setApplicationVersion("1.0.0")
+
+    # Install qasync event loop — this is the critical bridge between Qt and asyncio.
+    # From this point on asyncio.get_event_loop() returns the Qt-managed event loop.
+    loop = qasync.QEventLoop(app)
+    asyncio.set_event_loop(loop)
+
+    # Handle Ctrl+C gracefully
+    signal.signal(signal.SIGINT, lambda *_: app.quit())
 
     try:
-        # 1. Load Configuration
-        try:
-            settings = get_settings()
-            logger.info(f"Configuration loaded successfully. Environment: {settings.env}")
-        except Exception as e:
-            logger.critical(f"Failed to load configuration: {e}")
-            sys.exit(1)
-
-        # 2. Initialize Application
-        app = QApplication(sys.argv)
-        app.setApplicationName("ForzaAITuner")
-        app.setApplicationVersion("1.0.0")
-
-        # 3. Resolve Resources
-        ui_path = BASE_DIR / settings.ui.main_window_path
-        if not ui_path.exists():
-            logger.critical(f"UI file not found at: {ui_path}")
-            sys.exit(1)
-
-        # 4. Initialize Dependencies (Services)
-        logger.info("Initializing services...")
-        core_facade = RealCoreFacade()
-        config_validator = ConfigValidator()
-
-        # 5. Initialize ViewModel
-        logger.info("Initializing ViewModel...")
-        main_vm = MainViewModel(core_facade, config_validator)
-
-        # 6. Initialize View (Window)
-        logger.info("Initializing View...")
-        window = MainWindow(str(ui_path), main_vm)
-        window.show()
-
-        # 7. Setup Signal Handling Helper
-        timer = QTimer()
-        timer.timeout.connect(lambda: None)
-        timer.start(500)
-
-        # 8. Execute
-        sys.exit(app.exec())
-
+        with loop:
+            loop.run_until_complete(async_main())
     except Exception as e:
         logger.critical(f"Application failed to start: {e}", exc_info=True)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -19,6 +19,8 @@ class SyncWorker:
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def start(self) -> None:
+        if self._is_running:
+            return
         self._is_running = True
         self._session = aiohttp.ClientSession()
         self._task = asyncio.create_task(self._run_loop())
@@ -51,8 +53,14 @@ class SyncWorker:
 
     async def _send_batch(self, batch: List[Any]) -> bool:
         try:
-            # Сериализация пачки объектов
-            payload = [asdict(item) if is_dataclass(item) else item for item in batch]
+            payload = []
+            for item in batch:
+                if is_dataclass(item):
+                    payload.append(asdict(item))
+                elif hasattr(item, "model_dump"):
+                    payload.append(item.model_dump(mode="json"))
+                else:
+                    payload.append(item)
             
             if self._session is None:
                 self._session = aiohttp.ClientSession()
@@ -99,5 +107,6 @@ class SyncWorker:
                 
         if self._session:
             await self._session.close()
+            self._session = None
             
         logger.info("SyncWorker stopped.")
