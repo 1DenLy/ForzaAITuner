@@ -61,6 +61,7 @@ async def async_main():
     # unlock the "Start Session" button.
 
     from desktop_client.presentation.state.config_state import ConfigState
+    from desktop_client.presentation.state.session_state import SessionState
 
     def _on_config_updated(_new_config) -> None:
         """Subscriber: called by ConfigStateManager after every successful save."""
@@ -72,6 +73,27 @@ async def async_main():
     if app_config_state_manager.get_config() is not None:
         main_vm.app_state.config_state = ConfigState.READY
         logger.info("Cold-start: persisted config found — config_state set to READY.")
+
+    # ── Session-lock bridge ──────────────────────────────────────────────────
+    # ConfigStateManager.is_recording_session guards update_config() against
+    # race conditions (changing car setup mid-race).  The flag must mirror the
+    # actual session state owned by MainViewModel.
+    #
+    # The lock is engaged for ALL active pipeline states (STARTING, RECORDING,
+    # FLUSHING) — not just RECORDING — because the pipeline is already running
+    # with the current config from the moment `start_recording` is called.
+
+    _PIPELINE_ACTIVE = frozenset({
+        SessionState.STARTING,
+        SessionState.RECORDING,
+        SessionState.FLUSHING,
+    })
+
+    def _on_session_state_changed(state: SessionState) -> None:
+        """Keep ConfigStateManager lock in sync with MainViewModel session state."""
+        app_config_state_manager.is_recording_session = state in _PIPELINE_ACTIVE
+
+    main_vm.app_state.session_state_changed.connect(_on_session_state_changed)
 
     # 5. Initialize Dialog Services and View (Window)
     logger.info("Initializing View...")
