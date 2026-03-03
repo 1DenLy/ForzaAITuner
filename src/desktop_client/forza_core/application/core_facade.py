@@ -4,6 +4,7 @@ import threading
 from typing import Optional
 
 from desktop_client.presentation.interfaces.protocols import ICoreFacade
+from desktop_client.forza_core.domain.interfaces import IOutQueue
 from .ingestion_service import IngestionService
 from .packet_parser import PacketParser
 from desktop_client.forza_core.infrastructure.udp_transport import UdpListener
@@ -21,7 +22,7 @@ class RealCoreFacade(ICoreFacade):
     prevent blocking the UI and properly isolate asyncio paradigms from standard threads.
     """
     
-    def __init__(self, out_queue: asyncio.Queue):
+    def __init__(self, out_queue: IOutQueue):
         """
         Receives out_queue from UI.
         Internally creates UDP queue, listener, parser and ingestion service.

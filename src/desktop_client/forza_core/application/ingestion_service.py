@@ -4,7 +4,7 @@ import dataclasses
 from ..domain.models import TelemetryPacket
 from ..domain.events import RaceStarted, RaceStopped
 from .race_monitor import RaceStateMonitor
-from ..domain.interfaces import IPacketParser
+from ..domain.interfaces import IPacketParser, IOutQueue
 
 logger = structlog.get_logger()
 
@@ -15,7 +15,7 @@ class IngestionService:
     def __init__(
         self, 
         queue: asyncio.Queue,
-        out_queue: asyncio.Queue,
+        out_queue: IOutQueue,
         parser: IPacketParser
     ):
         self._queue = queue
