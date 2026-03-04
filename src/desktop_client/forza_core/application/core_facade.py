@@ -83,7 +83,7 @@ class RealCoreFacade(ICoreFacade):
         try:
             transport, protocol = await self._loop.create_datagram_endpoint(
                 lambda: UdpListener(udp_queue),
-                local_addr=(self._settings.network.host, self._settings.network.port)
+                local_addr=("127.0.0.1", self._settings.network.port)
             )
             self._udp_transport = transport
             logger.info(f"UDP Transport started listening on {self._udp_transport.get_extra_info('sockname')}.")
