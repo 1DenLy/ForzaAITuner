@@ -32,11 +32,23 @@ config_dialog.ui  ──[pyside6-uic]──►  ui_config_dialog.py
                                     (TuningMapper)
 ```
 
-### Команда перегенерации (обязательна после правки .ui)
+### Компиляция .ui → .py
+
+Компиляция **автоматизирована**: pre-commit хук запускает её при каждом `git commit`,
+если в staged-файлах есть изменённый `.ui`.
+
+Вручную (если нужно запустить без коммита):
 
 ```powershell
-pyside6-uic resources/config_dialog.ui -o src/desktop_client/presentation/ui_gen/ui_config_dialog.py
+make ui
+# или напрямую:
+python scripts/compile_ui.py
 ```
+
+> Первичная настройка хука (один раз после клонирования репо):
+> ```powershell
+> make setup-hooks
+> ```
 
 ---
 

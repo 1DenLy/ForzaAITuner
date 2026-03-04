@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: compile-ui
+        name: Compile .ui → .py (pyside6-uic)
+        language: python
+        entry: python scripts/pre_commit_compile_ui.py
+        files: \.ui$
+        pass_filenames: false
+        always_run: false

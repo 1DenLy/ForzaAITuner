@@ -1,11 +1,17 @@
 # ============================================================
 #  ForzaAITuner — Developer Makefile
 # ============================================================
-.PHONY: ui install test run lint
+.PHONY: ui install test run lint setup-hooks
 
 ## Compile all .ui assets to Python (AOT — Ahead-of-Time)
 ui:
 	python scripts/compile_ui.py
+
+## Install pre-commit and register git hooks (run once after clone)
+setup-hooks:
+	pip install pre-commit
+	pre-commit install
+	@echo "✅ pre-commit hook installed. .ui files will be auto-compiled on git commit."
 
 ## Install all dependencies
 install:
