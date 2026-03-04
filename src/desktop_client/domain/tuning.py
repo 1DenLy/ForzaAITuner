@@ -9,7 +9,7 @@ class Session(BaseTuningModel):
     """Session configuration."""
     name: str = Field(..., description="Session name")
     car: str = Field(..., description="Car name")
-    class_pi: int = Field(..., description="Car class/PI score")
+    class_pi: int = Field(..., ge=100, le=999, description="Car class/PI score")
     road_type: str = Field(..., description="Road type (e.g., Road, Dirt)")
     location: str = Field(..., description="Location: Race against opponents, Open Horizon World, or Time Trial (empty track)")
     surface: str = Field(..., description="Surface condition: Dry, Wet, or Snow/Ice")

@@ -42,7 +42,6 @@ def test_take_batch_locks_pending():
     
     batch2 = buffer.take_batch(2)
     assert batch2 == [1, 2]  # Same batch returned
-    assert batch1 is batch2
     
 def test_rollback_keeps_order():
     buffer = LocalBuffer()

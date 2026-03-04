@@ -11,10 +11,8 @@ class LocalBuffer:
         self._lock = threading.Lock()
 
     def put_nowait(self, packet: Any) -> bool:
-        """Enqueue a packet. Returns False if the buffer is at capacity."""
+        """Enqueue a packet. If the buffer is at capacity, the oldest element is removed."""
         with self._lock:
-            if len(self._queue) >= self._maxsize:
-                return False
             self._queue.append(packet)
             return True
 

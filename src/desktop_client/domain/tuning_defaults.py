@@ -48,7 +48,7 @@ class TuningDefaults:
             session=Session(
                 name="",
                 car="",
-                class_pi=0,
+                class_pi=100,
                 road_type="Road",
                 location="Open Horizon World",
                 surface="Dry",
