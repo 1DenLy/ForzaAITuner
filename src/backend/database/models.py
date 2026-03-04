@@ -4,6 +4,7 @@ from sqlalchemy import ForeignKey, Integer, String, Float, Boolean, DateTime, Ch
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, FLOAT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from sqlalchemy import text, event
 
 class Base(DeclarativeBase):
     pass
