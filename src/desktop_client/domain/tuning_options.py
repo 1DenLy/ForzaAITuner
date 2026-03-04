@@ -34,7 +34,7 @@ class TuningOptions:
     SURFACES: list[str] = ["Dry", "Wet", "Snow / Ice"]
 
     # ── Car Info ──────────────────────────────────────────────────────────────
-    DRIVE_TYPES: list[str] = ["RWD", "FWD", "AWD"]
+    DRIVE_TYPES: list[str] = ["AWD", "RWD", "FWD"]
 
     ENGINE_PLACEMENTS: list[str] = ["Front", "Mid", "Rear"]
 

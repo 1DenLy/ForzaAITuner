@@ -16,11 +16,11 @@ class Session(BaseTuningModel):
 
 class CarInfo(BaseTuningModel):
     """Basic car info/specs."""
-    weight: int = Field(..., gt=0, description="Weight of the car (kg/lbs)")
-    power: int = Field(..., gt=0, description="Power of the car (HP/kW)")
-    torque: int = Field(..., gt=0, description="Torque of the car (Nm/ft-lb)")
+    weight: int = Field(..., ge=1, description="Weight of the car (kg/lbs)")
+    power: int = Field(..., ge=1, description="Power of the car (HP/kW)")
+    torque: int = Field(..., ge=1, description="Torque of the car (Nm/ft-lb)")
     front_weight: float = Field(..., ge=0.0, le=100.0, description="Front weight percentage")
-    suspension_travel: int = Field(..., gt=0, description="Suspension travel in mm (e.g., 80, 120)")
+    suspension_travel: int = Field(..., ge=1, description="Suspension travel in mm (e.g., 80, 120)")
     drive_type: str = Field(..., description="Drive type (e.g., AWD, RWD)")
     engine_placement: str = Field(..., description="Engine placement (e.g., Front, Mid)")
 
@@ -28,16 +28,16 @@ class Tires(BaseTuningModel):
     """Tire settings."""
     front_pressure_bar: float = Field(..., ge=1.0, le=3.8, description="Front tire pressure (Bar)")
     rear_pressure_bar: float = Field(..., ge=1.0, le=3.8, description="Rear tire pressure (Bar)")
-    width_front: int = Field(..., gt=0, description="Front tire width (mm)")
-    width_rear: int = Field(..., gt=0, description="Rear tire width (mm)")
+    width_front: int = Field(..., ge=1, description="Front tire width (mm)")
+    width_rear: int = Field(..., ge=1, description="Rear tire width (mm)")
     compound: str = Field(..., description="Tire compound type")
 
 # Annotated Type for gears
-GearRatio = Annotated[float, Field(gt=0)]
+GearRatio = Annotated[float, Field(ge=0.1)]
 
 class Gearing(BaseTuningModel):
     """Transmission and gearing settings."""
-    final_drive: float = Field(..., gt=0, description="Final drive ratio")
+    final_drive: float = Field(..., ge=0.1, description="Final drive ratio")
     gears: Annotated[list[GearRatio], Field(min_length=1, description="Gear ratios (1st, 2nd, ...)")]
 
 
@@ -59,15 +59,15 @@ class AntiRollBars(BaseTuningModel):
 
 class Suspension(BaseTuningModel):
     """Suspension settings (Springs, Ride Height)."""
-    spring_front: float = Field(..., gt=0, description="Front spring rate")
-    spring_rear: float = Field(..., gt=0, description="Rear spring rate")
-    spring_min: float = Field(..., gt=0, description="Minimum spring rate allowed")
-    spring_max: float = Field(..., gt=0, description="Maximum spring rate allowed")
+    spring_front: float = Field(..., ge=0.1, description="Front spring rate")
+    spring_rear: float = Field(..., ge=0.1, description="Rear spring rate")
+    spring_min: float = Field(..., ge=0.1, description="Minimum spring rate allowed")
+    spring_max: float = Field(..., ge=0.1, description="Maximum spring rate allowed")
     
-    clearance_front: float = Field(..., gt=0, description="Front ride height/clearance")
-    clearance_rear: float = Field(..., gt=0, description="Rear ride height/clearance")
-    clearance_min: float = Field(..., gt=0, description="Minimum clearance allowed")
-    clearance_max: float = Field(..., gt=0, description="Maximum clearance allowed")
+    clearance_front: float = Field(..., ge=0.1, description="Front ride height/clearance")
+    clearance_rear: float = Field(..., ge=0.1, description="Rear ride height/clearance")
+    clearance_min: float = Field(..., ge=0.1, description="Minimum clearance allowed")
+    clearance_max: float = Field(..., ge=0.1, description="Maximum clearance allowed")
 
 class Damping(BaseTuningModel):
     """Damper settings (Bump/Rebound)."""
@@ -86,13 +86,13 @@ class Aerodynamics(BaseTuningModel):
     front_enabled: bool = Field(..., description="Is front aero tunable")
     rear_enabled: bool = Field(..., description="Is rear aero tunable")
     
-    front: float = Field(..., ge=0.0, description="Front downforce")
-    front_min: float = Field(..., ge=0.0, description="Front downforce min")
-    front_max: float = Field(..., ge=0.0, description="Front downforce max")
+    front: float = Field(..., ge=1.0, description="Front downforce")
+    front_min: float = Field(..., ge=1.0, description="Front downforce min")
+    front_max: float = Field(..., ge=1.0, description="Front downforce max")
     
-    rear: float = Field(..., ge=0.0, description="Rear downforce")
-    rear_min: float = Field(..., ge=0.0, description="Rear downforce min")
-    rear_max: float = Field(..., ge=0.0, description="Rear downforce max")
+    rear: float = Field(..., ge=1.0, description="Rear downforce")
+    rear_min: float = Field(..., ge=1.0, description="Rear downforce min")
+    rear_max: float = Field(..., ge=1.0, description="Rear downforce max")
 
 class Brakes(BaseTuningModel):
     """Brake system settings."""

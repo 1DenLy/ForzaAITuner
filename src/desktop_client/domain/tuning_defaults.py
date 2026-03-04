@@ -54,18 +54,18 @@ class TuningDefaults:
                 surface="Dry",
             ),
             info=CarInfo(
-                weight=1,             # gt=0: пользователь заполнит под свой автомобиль
+                weight=1,             # ge=1
                 power=1,
                 torque=1,
                 front_weight=50.0,
-                suspension_travel=1,
-                drive_type="RWD",
+                suspension_travel=100,
+                drive_type="AWD",
                 engine_placement="Front",
             ),
             tires=Tires(
-                front_pressure_bar=2.0,
-                rear_pressure_bar=2.0,
-                width_front=1,    # gt=0: пользователь заполнит
+                front_pressure_bar=1.9,
+                rear_pressure_bar=1.9,
+                width_front=1,    # gt=0
                 width_rear=1,
                 compound="Sport",
             ),
@@ -85,7 +85,7 @@ class TuningDefaults:
                 rear=28.0,
             ),
             suspension=Suspension(
-                spring_front=0.1,      # gt=0: пользователь заполнит под автомобиль
+                spring_front=0.1,      # gt=0
                 spring_rear=0.1,
                 spring_min=0.1,
                 spring_max=0.1,
@@ -105,14 +105,14 @@ class TuningDefaults:
                 bump_max=1.0,
             ),
             aerodynamics=Aerodynamics(
-                front_enabled=False,
-                rear_enabled=False,
-                front=0.0,
-                front_min=0.0,
-                front_max=0.0,
-                rear=0.0,
-                rear_min=0.0,
-                rear_max=0.0,
+                front_enabled=True,
+                rear_enabled=True,
+                front=1.0,
+                front_min=1.0,
+                front_max=1.0,
+                rear=1.0,
+                rear_min=1.0,
+                rear_max=1.0,
             ),
             brakes=Brakes(
                 balance_pct=50.0,
@@ -194,7 +194,7 @@ class TuningDefaults:
             if hasattr(constraint, "ge"):
                 lo = float(constraint.ge)
             elif hasattr(constraint, "gt"):
-                lo = float(constraint.gt)  # gt ≈ ge для слайдеров (целые шаги)
+                lo = float(constraint.gt)  # ВАЖНО: Qt поддерживает только ge. В домене всегда используйте ge=..., а не gt=...
             if hasattr(constraint, "le"):
                 hi = float(constraint.le)
             elif hasattr(constraint, "lt"):

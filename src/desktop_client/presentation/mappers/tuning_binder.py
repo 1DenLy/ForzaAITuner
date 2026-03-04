@@ -146,30 +146,32 @@ class TuningMapper:
             WidgetBinding("comboBox_assists_steering", ("assists", "steering")),
         ]
 
-    def configure_sliders(self, ui_widgets: UiSource) -> None:
+    def configure_ranges(self, ui_widgets: UiSource) -> None:
         """
-        Устанавливает setMinimum/setMaximum/setValue слайдеров:
+        Устанавливает setMinimum/setMaximum/setValue слайдеров и спинбоксов:
           - min/max  — читает из Field(ge/le) через TuningDefaults.get_range()
           - default  — читает через TuningDefaults.get()
 
         Вызывается один раз до export_to_ui. Автоматически подхватывает
         ge/le при изменении Field в tuning.py — дополнить/изменить мапер не нужно.
-        Слайдер пропускается, если поле не имеет ge/le (напр. str-поля).
+        Виджет пропускается, если поле не имеет ge/le (напр. str-поля).
         """
         for binding in self.bindings:
             widget = self._get_widget_from_dict_or_obj(ui_widgets, binding.widget_name)
-            if widget is None or not isinstance(widget, QAbstractSlider):
+            if widget is None or not isinstance(widget, (QAbstractSlider, QAbstractSpinBox)):
                 continue
 
             lo, hi = TuningDefaults.get_range(binding.model_path)
-            if lo is None or hi is None:
-                continue  # нет ge/le → не слайдерный виджет
-
-            widget.setMinimum(binding.model_to_ui(lo))
-            widget.setMaximum(binding.model_to_ui(hi))
-            # Гарантируем шаг 1 для колёсика и стрелок — независимо от Qt Designer
-            widget.setSingleStep(1)
-            widget.setPageStep(1)
+            
+            if lo is not None:
+                widget.setMinimum(binding.model_to_ui(lo))
+            if hi is not None:
+                widget.setMaximum(binding.model_to_ui(hi))
+            
+            if isinstance(widget, QAbstractSlider):
+                # Гарантируем шаг 1 для колёсика и стрелок — независимо от Qt Designer
+                widget.setSingleStep(1)
+                widget.setPageStep(1)
 
             default_model = TuningDefaults.get(binding.model_path)
             if default_model is not None:

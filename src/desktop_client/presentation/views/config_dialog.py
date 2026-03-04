@@ -27,7 +27,7 @@ class ConfigDialog(QDialog):
 
         # ── Настройка виджетов и сигналов ─────────────────────────────────────
         self.mapper.populate_combo_boxes(self.ui)   # 1. заполнить списки из домена
-        self.mapper.configure_sliders(self.ui)      # 2. min/max/default из домена
+        self.mapper.configure_ranges(self.ui)       # 2. min/max/default из домена
         self.mapper.setup_slider_labels(self.ui)    # 3. подключить label к valueChanged
         self._connect_signals()
         self._populate_initial_data()               # 4. загрузить реальные данные
