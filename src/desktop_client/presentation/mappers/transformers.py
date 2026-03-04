@@ -1,53 +1,74 @@
 # -*- coding: utf-8 -*-
-"""
-Чистые функции трансформации данных между UI (int) и моделью (float).
-
-Вынесены из _init_bindings в TuningMapper, чтобы:
-  - их можно было тестировать изолированно (unit-тесты без Qt);
-  - нейминг отражал намерение, а не реализацию (scale_x10 / scale_x1);
-  - лямбды не захламляли пространство имён метода.
-
-Все методы — статические, без состояния, чистые (pure functions).
-"""
+"""Функции трансформации данных между UI (int) и моделью (float)."""
 
 from __future__ import annotations
 
+import logging
+import math
+from typing import Callable
 
-class Transformers:
-    """Пространство имён для функций трансформации виджет↔модель."""
+logger = logging.getLogger(__name__)
 
-    # ── Слайдеры с ценой деления 0.1 (×10) ─────────────────────────────────
 
-    @staticmethod
-    def slider_x10_to_model(raw: int | float) -> float:
-        """Слайдер (целое) → модель: делим на 10. Пример: 21 → 2.1."""
-        return round(float(raw) / 10.0, 2)
+# ---------------------------------------------------------------------------
+# Фабрики (приватные)
+# ---------------------------------------------------------------------------
 
-    @staticmethod
-    def slider_x10_to_ui(value: float) -> int:
-        """Модель → слайдер: умножаем на 10. Пример: 2.1 → 21."""
-        return int(float(value) * 10)
+def _make_to_model(factor: float) -> Callable[[int | float], float]:
+    """Делит сырое UI-значение на ``factor``. При ошибке возвращает ``0.0``."""
+    if factor <= 0:
+        raise ValueError(f"factor must be > 0, got {factor!r}")
 
-    # ── Слайдеры с ценой деления 1.0 (×1) ──────────────────────────────────
+    precision = max(0, math.ceil(math.log10(factor))) if factor > 1 else 0
 
-    @staticmethod
-    def slider_x1_to_model(raw: int | float) -> float:
-        """Слайдер (целое) → модель: приводим к float. Пример: 65 → 65.0."""
-        return float(raw)
+    def to_model(raw: int | float) -> float:
+        try:
+            return round(float(raw) / factor, precision)
+        except (TypeError, ValueError) as exc:
+            logger.warning("to_model_x%s: bad input %r — returning 0.0 (%s)", factor, raw, exc)
+            return 0.0
 
-    @staticmethod
-    def slider_x1_to_ui(value: float) -> int:
-        """Модель → слайдер: обрезаем дробную часть. Пример: 65.0 → 65."""
-        return int(float(value))
+    to_model.__name__ = f"to_model_x{factor}"
+    return to_model
 
-    # ── Булевы комбобоксы ("True" / "False") ────────────────────────────────
 
-    @staticmethod
-    def str_to_bool(raw: str) -> bool:
-        """Строка из QComboBox → bool. Пример: "True" → True."""
-        return str(raw).lower() == "true"
+def _make_to_ui(factor: float) -> Callable[[float], int]:
+    """Умножает значение модели на ``factor`` и приводит к int. При ошибке возвращает ``0``."""
+    if factor <= 0:
+        raise ValueError(f"factor must be > 0, got {factor!r}")
 
-    @staticmethod
-    def bool_to_str(value: bool) -> str:
-        """Bool → строка для QComboBox. Пример: False → "False"."""
-        return "True" if value else "False"
+    def to_ui(value: float) -> int:
+        try:
+            return int(round(float(value) * factor))
+        except (TypeError, ValueError) as exc:
+            logger.warning("to_ui_x%s: bad input %r — returning 0 (%s)", factor, value, exc)
+            return 0
+
+    to_ui.__name__ = f"to_ui_x{factor}"
+    return to_ui
+
+
+def _make_pair(factor: float) -> tuple[Callable[[int | float], float], Callable[[float], int]]:
+    """Возвращает пару ``(to_model, to_ui)`` для заданного масштаба."""
+    return _make_to_model(factor), _make_to_ui(factor)
+
+
+# ---------------------------------------------------------------------------
+# Публичные функции
+# ---------------------------------------------------------------------------
+
+# ×10 — шаг 0.1: слайдер 21 → модель 2.1
+slider_x10_to_model, slider_x10_to_ui = _make_pair(10)
+
+# ×1  — шаг 1.0: слайдер 65 → модель 65.0
+slider_x1_to_model, slider_x1_to_ui = _make_pair(1)
+
+
+def str_to_bool(raw: str) -> bool:
+    """``"True"`` → ``True``, всё остальное → ``False``."""
+    return str(raw).lower() == "true"
+
+
+def bool_to_str(value: bool) -> str:
+    """``True`` → ``"True"``, ``False`` → ``"False"``."""
+    return "True" if value else "False"

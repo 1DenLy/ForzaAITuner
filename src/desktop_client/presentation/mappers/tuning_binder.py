@@ -14,7 +14,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_client.presentation.mappers.transformers import Transformers
+from desktop_client.presentation.mappers.transformers import (
+    slider_x10_to_model, slider_x10_to_ui,
+    slider_x1_to_model,  slider_x1_to_ui,
+    str_to_bool, bool_to_str,
+)
 from desktop_client.domain.tuning_defaults import TuningDefaults
 from desktop_client.domain.tuning_options import TuningOptions
 
@@ -54,7 +58,7 @@ class TuningMapper:
     def _init_bindings(self) -> list[WidgetBinding]:
         """
         Регистрация всех правил привязки.
-        Функции трансформации берутся из Transformers — они именованы, чистые и покрыты тестами.
+        Функции трансформации берутся из модуля transformers — они именованы, чистые и покрыты тестами.
         """
 
         return [
@@ -76,22 +80,22 @@ class TuningMapper:
             WidgetBinding("comboBox_info_engine_placement", ("info", "engine_placement")),
 
             # ── Tires — label_format="float": 2.1 bar ─────────────────────────
-            WidgetBinding("horizontalSlider_tire_front_pressure", ("tires", "front_pressure_bar"), ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_tire_front_value",  label_format="float"),
-            WidgetBinding("horizontalSlider_tire_rear_pressure",  ("tires", "rear_pressure_bar"),  ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_tire_rear_value",   label_format="float"),
+            WidgetBinding("horizontalSlider_tire_front_pressure", ("tires", "front_pressure_bar"), ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_tire_front_value",  label_format="float"),
+            WidgetBinding("horizontalSlider_tire_rear_pressure",  ("tires", "rear_pressure_bar"),  ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_tire_rear_value",   label_format="float"),
             WidgetBinding("spinBox_tire_width_front", ("tires", "width_front")),
             WidgetBinding("spinBox_tire_width_rear",  ("tires", "width_rear")),
             WidgetBinding("comboBox_tire_compound",   ("tires", "compound")),
 
             # ── Alignment — label_format="float": -1.5°, 5.0° ───────────────
-            WidgetBinding("horizontalSlider_alignment_front_camber", ("alignment", "camber_front_deg"), ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_alignment_front_camber_value", label_format="float"),
-            WidgetBinding("horizontalSlider_alignment_rear_camber",  ("alignment", "camber_rear_deg"),  ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_alignment_rear_camber_value",  label_format="float"),
-            WidgetBinding("horizontalSlider_alignment_front_toe",    ("alignment", "toe_front_deg"),    ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_alignment_front_toe_value",    label_format="float"),
-            WidgetBinding("horizontalSlider_alignment_rear_toe",     ("alignment", "toe_rear_deg"),     ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_alignment_rear_toe_value",     label_format="float"),
-            WidgetBinding("horizontalSlider_alignment_front_caster", ("alignment", "caster_front_deg"), ui_to_model=Transformers.slider_x10_to_model, model_to_ui=Transformers.slider_x10_to_ui, label_name="label_alignment_front_caster_value", label_format="float"),
+            WidgetBinding("horizontalSlider_alignment_front_camber", ("alignment", "camber_front_deg"), ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_alignment_front_camber_value", label_format="float"),
+            WidgetBinding("horizontalSlider_alignment_rear_camber",  ("alignment", "camber_rear_deg"),  ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_alignment_rear_camber_value",  label_format="float"),
+            WidgetBinding("horizontalSlider_alignment_front_toe",    ("alignment", "toe_front_deg"),    ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_alignment_front_toe_value",    label_format="float"),
+            WidgetBinding("horizontalSlider_alignment_rear_toe",     ("alignment", "toe_rear_deg"),     ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_alignment_rear_toe_value",     label_format="float"),
+            WidgetBinding("horizontalSlider_alignment_front_caster", ("alignment", "caster_front_deg"), ui_to_model=slider_x10_to_model, model_to_ui=slider_x10_to_ui, label_name="label_alignment_front_caster_value", label_format="float"),
 
             # ── AntiRollBars — label_format="int": 32, 28 ───────────────────
-            WidgetBinding("horizontalSlider_roll_bar_front", ("anti_roll_bars", "front"), ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_roll_bar_front_value"),
-            WidgetBinding("horizontalSlider_roll_bar_rear",  ("anti_roll_bars", "rear"),  ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_roll_bar_rear_value"),
+            WidgetBinding("horizontalSlider_roll_bar_front", ("anti_roll_bars", "front"), ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_roll_bar_front_value"),
+            WidgetBinding("horizontalSlider_roll_bar_rear",  ("anti_roll_bars", "rear"),  ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_roll_bar_rear_value"),
 
             # ── Suspension (Spring / Clearance) ───────────────────────────────
             WidgetBinding("doubleSpinBox_spring_front",    ("suspension", "spring_front")),
@@ -124,20 +128,20 @@ class TuningMapper:
             WidgetBinding("spinBox_aero_rear_max",  ("aerodynamics", "rear_max")),
 
             # ── Brakes — label_format="int": 50%, 100% ─────────────────────
-            WidgetBinding("horizontalSlider_brake_balance", ("brakes", "balance_pct"), ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_brake_balance_value"),
-            WidgetBinding("horizontalSlider_brake_power",   ("brakes", "power_pct"),   ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_brake_power_value"),
+            WidgetBinding("horizontalSlider_brake_balance", ("brakes", "balance_pct"), ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_brake_balance_value"),
+            WidgetBinding("horizontalSlider_brake_power",   ("brakes", "power_pct"),   ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_brake_power_value"),
 
             # ── Differential — label_format="int": 50, 75 ──────────────────
-            WidgetBinding("horizontalSlider_differential_acceleration_front", ("differential", "acceleration_front"), ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_differential_acceleration_front_value"),
-            WidgetBinding("horizontalSlider_differential_deceleration_front", ("differential", "deceleration_front"), ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_differential_deceleration_front_value"),
-            WidgetBinding("horizontalSlider_differential_acceleration_rear",  ("differential", "acceleration_rear"),  ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_differential_acceleration_rear_value"),
-            WidgetBinding("horizontalSlider_differential_deceleration_rear",  ("differential", "deceleration_rear"),  ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_differential_deceleration_rear_value"),
-            WidgetBinding("horizontalSlider_differential_balance",            ("differential", "balance"),            ui_to_model=Transformers.slider_x1_to_model, model_to_ui=Transformers.slider_x1_to_ui, label_name="label_differential_balance_value"),
+            WidgetBinding("horizontalSlider_differential_acceleration_front", ("differential", "acceleration_front"), ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_differential_acceleration_front_value"),
+            WidgetBinding("horizontalSlider_differential_deceleration_front", ("differential", "deceleration_front"), ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_differential_deceleration_front_value"),
+            WidgetBinding("horizontalSlider_differential_acceleration_rear",  ("differential", "acceleration_rear"),  ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_differential_acceleration_rear_value"),
+            WidgetBinding("horizontalSlider_differential_deceleration_rear",  ("differential", "deceleration_rear"),  ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_differential_deceleration_rear_value"),
+            WidgetBinding("horizontalSlider_differential_balance",            ("differential", "balance"),            ui_to_model=slider_x1_to_model, model_to_ui=slider_x1_to_ui, label_name="label_differential_balance_value"),
 
             # ── Assists ───────────────────────────────────────────────────────
-            WidgetBinding("comboBox_assists_abs",      ("assists", "abs"), ui_to_model=Transformers.str_to_bool, model_to_ui=Transformers.bool_to_str),
-            WidgetBinding("comboBox_assists_stm",      ("assists", "stm"), ui_to_model=Transformers.str_to_bool, model_to_ui=Transformers.bool_to_str),
-            WidgetBinding("comboBox_assists_tcs",      ("assists", "tcs"), ui_to_model=Transformers.str_to_bool, model_to_ui=Transformers.bool_to_str),
+            WidgetBinding("comboBox_assists_abs",      ("assists", "abs"), ui_to_model=str_to_bool, model_to_ui=bool_to_str),
+            WidgetBinding("comboBox_assists_stm",      ("assists", "stm"), ui_to_model=str_to_bool, model_to_ui=bool_to_str),
+            WidgetBinding("comboBox_assists_tcs",      ("assists", "tcs"), ui_to_model=str_to_bool, model_to_ui=bool_to_str),
             WidgetBinding("comboBox_assists_shifting", ("assists", "shifting")),
             WidgetBinding("comboBox_assists_steering", ("assists", "steering")),
         ]
