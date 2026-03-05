@@ -919,19 +919,19 @@ class Ui_ConfigDialog(object):
 
         self.gridLayout_spring.addWidget(self.doubleSpinBox_spring_rear, 2, 1, 1, 1)
 
-        self.doubleSpinBox_sping_min = QDoubleSpinBox(self.tab_spring)
-        self.doubleSpinBox_sping_min.setObjectName(u"doubleSpinBox_sping_min")
-        sizePolicy.setHeightForWidth(self.doubleSpinBox_sping_min.sizePolicy().hasHeightForWidth())
-        self.doubleSpinBox_sping_min.setSizePolicy(sizePolicy)
-        self.doubleSpinBox_sping_min.setMinimumSize(QSize(70, 15))
-        self.doubleSpinBox_sping_min.setMaximumSize(QSize(16777215, 25))
-        self.doubleSpinBox_sping_min.setFont(font1)
-        self.doubleSpinBox_sping_min.setAlignment(Qt.AlignCenter)
-        self.doubleSpinBox_sping_min.setDecimals(1)
-        self.doubleSpinBox_sping_min.setMinimum(-10000.000000000000000)
-        self.doubleSpinBox_sping_min.setMaximum(10000.000000000000000)
+        self.doubleSpinBox_spring_min = QDoubleSpinBox(self.tab_spring)
+        self.doubleSpinBox_spring_min.setObjectName(u"doubleSpinBox_spring_min")
+        sizePolicy.setHeightForWidth(self.doubleSpinBox_spring_min.sizePolicy().hasHeightForWidth())
+        self.doubleSpinBox_spring_min.setSizePolicy(sizePolicy)
+        self.doubleSpinBox_spring_min.setMinimumSize(QSize(70, 15))
+        self.doubleSpinBox_spring_min.setMaximumSize(QSize(16777215, 25))
+        self.doubleSpinBox_spring_min.setFont(font1)
+        self.doubleSpinBox_spring_min.setAlignment(Qt.AlignCenter)
+        self.doubleSpinBox_spring_min.setDecimals(1)
+        self.doubleSpinBox_spring_min.setMinimum(-10000.000000000000000)
+        self.doubleSpinBox_spring_min.setMaximum(10000.000000000000000)
 
-        self.gridLayout_spring.addWidget(self.doubleSpinBox_sping_min, 2, 2, 1, 1)
+        self.gridLayout_spring.addWidget(self.doubleSpinBox_spring_min, 2, 2, 1, 1)
 
         self.doubleSpinBox_spring_max = QDoubleSpinBox(self.tab_spring)
         self.doubleSpinBox_spring_max.setObjectName(u"doubleSpinBox_spring_max")
@@ -1930,7 +1930,7 @@ class Ui_ConfigDialog(object):
         self.buttonBox.accepted.connect(ConfigDialog.accept)
         self.buttonBox.rejected.connect(ConfigDialog.reject)
 
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(4)
 
 
         QMetaObject.connectSlotsByName(ConfigDialog)

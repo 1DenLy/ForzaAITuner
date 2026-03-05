@@ -91,7 +91,7 @@ WidgetBinding("horizontalSlider_roll_bar_rear", ("anti_roll_bars", "rear"),
 # ── Suspension / Damping — QDoubleSpinBox, без трансформации ─────
 WidgetBinding("doubleSpinBox_spring_front",    ("suspension", "spring_front")),
 WidgetBinding("doubleSpinBox_spring_rear",     ("suspension", "spring_rear")),
-WidgetBinding("doubleSpinBox_sping_min",       ("suspension", "spring_min")),  # опечатка в UI зафиксирована
+WidgetBinding("doubleSpinBox_spring_min",      ("suspension", "spring_min")),
 WidgetBinding("doubleSpinBox_spring_max",      ("suspension", "spring_max")),
 WidgetBinding("doubleSpinBox_clearance_front", ("suspension", "clearance_front")),
 WidgetBinding("doubleSpinBox_clearance_rear",  ("suspension", "clearance_rear")),

@@ -1,5 +1,5 @@
 """
-pre-commit hook: проверяет, что .ui → .py файлы актуальны.
+pre-commit hook: проверяет, что .ui -> .py файлы актуальны.
 
 Логика:
   1. Если среди staged-файлов есть изменённый .ui — запускает compile_ui.py.
@@ -45,7 +45,7 @@ def main() -> int:
         return 0
 
     print(f"[pre-commit] Обнаружены изменённые .ui файлы: {staged_ui}")
-    print("[pre-commit] Запускаю компиляцию .ui → .py ...")
+    print("[pre-commit] Запускаю компиляцию .ui -> .py ...")
 
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "compile_ui.py")],
@@ -53,7 +53,7 @@ def main() -> int:
     )
 
     if result.returncode != 0:
-        print("[pre-commit] ❌ Компиляция завершилась с ошибкой. Коммит заблокирован.")
+        print("[pre-commit] [ERROR] Компиляция завершилась с ошибкой. Коммит заблокирован.")
         return 1
 
     # Добавляем сгенерированные файлы в индекс автоматически
@@ -64,7 +64,7 @@ def main() -> int:
     ]
     if generated:
         subprocess.run(["git", "add"] + generated, cwd=ROOT)
-        print(f"[pre-commit] ✅ Добавлены в индекс: {generated}")
+        print(f"[pre-commit] [OK] Добавлены в индекс: {generated}")
 
     return 0
 

@@ -49,7 +49,7 @@
       </font>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>4</number>
      </property>
      <widget class="QWidget" name="tab_session">
       <attribute name="title">
@@ -2539,7 +2539,7 @@
           </widget>
          </item>
          <item row="2" column="2">
-          <widget class="QDoubleSpinBox" name="doubleSpinBox_sping_min">
+          <widget class="QDoubleSpinBox" name="doubleSpinBox_spring_min">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>
