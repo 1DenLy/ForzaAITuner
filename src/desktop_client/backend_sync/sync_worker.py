@@ -1,17 +1,39 @@
 import asyncio
 import structlog
 import aiohttp
-from dataclasses import asdict, is_dataclass
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 from desktop_client.backend_sync.local_buffer import LocalBuffer
 
 logger = structlog.get_logger(__name__)
 
+
 class SyncWorker:
-    def __init__(self, buffer: LocalBuffer, api_url: str, batch_size: int = 60, interval_sec: float = 1.0):
+    """Sends telemetry batches to the backend REST API.
+
+    Args:
+        buffer:      Ring-buffer that holds in-flight telemetry packets.
+        api_url:     Full URL of the ingest endpoint.
+        serializer:  Pure function that converts a batch of domain objects
+                     into a JSON-serialisable ``list[dict]``.  Keeping the
+                     conversion logic outside the worker preserves SRP and
+                     makes it trivial to swap formats without touching
+                     networking code.
+        batch_size:  Maximum number of packets per HTTP request.
+        interval_sec: How often the send loop fires (seconds).
+    """
+
+    def __init__(
+        self,
+        buffer: LocalBuffer,
+        api_url: str,
+        serializer: Callable[[List[Any]], List[dict]],
+        batch_size: int = 60,
+        interval_sec: float = 1.0,
+    ) -> None:
         self.buffer = buffer
         self.api_url = api_url
+        self._serializer = serializer
         self.batch_size = batch_size
         self.interval_sec = interval_sec
         self._is_running: bool = False
@@ -22,52 +44,44 @@ class SyncWorker:
         if self._is_running:
             return
         self._is_running = True
-        self._session = aiohttp.ClientSession()
+        # Strict lifecycle: session is created here and only here.
+        # ClientTimeout covers DNS resolution + TCP handshake + total request.
+        self._session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=5.0)
+        )
         self._task = asyncio.create_task(self._run_loop())
 
     async def _run_loop(self) -> None:
         while self._is_running:
             try:
                 await asyncio.sleep(self.interval_sec)
-                
+
                 # Если во время сна вызвали stop(), не забираем новую пачку
                 if not self._is_running:
                     break
 
-                batch = self.buffer.take_batch(self.batch_size)
-                if not batch:
-                    continue
-                
-                success = await self._send_batch(batch)
-                
-                if success:
-                    self.buffer.commit()
-                else:
-                    self.buffer.rollback()
-                    logger.warning("Failed to send batch, rolled back.", batch_size=len(batch))
-                    
+                with self.buffer.transaction_n(self.batch_size) as batch:
+                    if not batch:
+                        continue
+
+                    success = await self._send_batch(batch)
+
+                    if not success:
+                        logger.warning("Failed to send batch, rolled back.", batch_size=len(batch))
+                        raise RuntimeError("send failed")  # triggers automatic rollback
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error("Unexpected error in SyncWorker run loop.", error=str(e), exc_info=True)
 
     async def _send_batch(self, batch: List[Any]) -> bool:
+        assert self._session is not None, "SyncWorker.start() must be called before sending data"
         try:
-            payload = []
-            for item in batch:
-                if is_dataclass(item):
-                    payload.append(asdict(item))
-                elif hasattr(item, "model_dump"):
-                    payload.append(item.model_dump(mode="json"))
-                else:
-                    payload.append(item)
-            
-            if self._session is None:
-                self._session = aiohttp.ClientSession()
-                
-            async with self._session.post(self.api_url, json=payload, timeout=5.0) as response:
+            payload = self._serializer(batch)
+            async with self._session.post(self.api_url, json=payload) as response:
                 return response.status in (200, 201)
-                    
+
         except asyncio.TimeoutError:
             logger.warning("Timeout while sending telemetry batch.")
             return False
@@ -85,28 +99,27 @@ class SyncWorker:
                 await self._task
             except asyncio.CancelledError:
                 pass
-            
-        remaining = self.buffer.take_ALL_remaining()
-        if remaining:
-            logger.info("Force flush remaining telemetry packets...", count=len(remaining))
-            
+
+        if self.buffer.size:
+            logger.info("Force flush remaining telemetry packets...", count=self.buffer.size)
+
             # Делаем 3 попытки отправить последние данные
             max_retries = 3
-            for attempt in range(max_retries):
-                success = await self._send_batch(remaining)
-                if success:
-                    self.buffer.commit()
-                    logger.info("Successfully sent remaining telemetry.")
-                    break
-                else:
-                    logger.warning("Failed to send remaining telemetry, retrying...", attempt=attempt+1)
+            with self.buffer.transaction() as remaining:
+                for attempt in range(max_retries):
+                    success = await self._send_batch(remaining)
+                    if success:
+                        logger.info("Successfully sent remaining telemetry.")
+                        break
+                    logger.warning("Failed to send remaining telemetry, retrying...", attempt=attempt + 1)
                     if attempt < max_retries - 1:
                         await asyncio.sleep(1.0)
-            else:
-                logger.error("Could not send remaining telemetry after retries.")
-                
+                else:
+                    logger.error("Could not send remaining telemetry after retries.")
+                    raise RuntimeError("flush failed")  # triggers automatic rollback
+
         if self._session:
             await self._session.close()
             self._session = None
-            
+
         logger.info("SyncWorker stopped.")

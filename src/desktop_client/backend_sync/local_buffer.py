@@ -1,13 +1,14 @@
 import threading
 from collections import deque
-from typing import Any, List
+from contextlib import contextmanager
+from typing import Any, Generator, List
 
 
 class LocalBuffer:
     def __init__(self, maxsize: int = 60000):
         self._maxsize = maxsize
         self._queue = deque(maxlen=maxsize)
-        self._pending_batch = []
+        self._pending_batch: List[Any] = []
         self._lock = threading.Lock()
 
     def put_nowait(self, packet: Any) -> bool:
@@ -28,20 +29,68 @@ class LocalBuffer:
             self._pending_batch = batch
             return list(self._pending_batch)  # shallow copy
 
-    def commit(self) -> None:
-        with self._lock:
-            self._pending_batch.clear()
-
-    def rollback(self) -> None:
-        with self._lock:
-            self._queue.extendleft(reversed(self._pending_batch))
-            self._pending_batch.clear()
-
-    def take_ALL_remaining(self) -> List[Any]:
+    def take_all_remaining(self) -> List[Any]:
         with self._lock:
             self._pending_batch.extend(self._queue)
             self._queue.clear()
             return list(self._pending_batch)  # shallow copy — caller cannot mutate internal state
+
+    @contextmanager
+    def transaction(self) -> Generator[List[Any], None, None]:
+        """Context manager that auto-commits on success and rolls back on any exit.
+
+        Grabs **all** items currently in the buffer (including any pending batch).
+        Uses ``finally`` so that ``BaseException`` subclasses (``CancelledError``,
+        ``KeyboardInterrupt``, ``SystemExit``) also trigger a rollback.
+
+        Usage::
+
+            with buffer.transaction() as batch:
+                send(batch)
+                # commit runs automatically on clean exit
+                # rollback runs automatically on any exception/cancellation
+        """
+        batch = self.take_all_remaining()
+        committed = False
+        try:
+            yield batch
+            self._commit()
+            committed = True
+        finally:
+            if not committed:
+                self._rollback()
+
+    @contextmanager
+    def transaction_n(self, n: int) -> Generator[List[Any], None, None]:
+        """Like ``transaction()``, but takes at most *n* items from the queue.
+
+        Usage::
+
+            with buffer.transaction_n(batch_size) as batch:
+                send(batch)
+        """
+        batch = self.take_batch(n)
+        committed = False
+        try:
+            yield batch
+            self._commit()
+            committed = True
+        finally:
+            if not committed:
+                self._rollback()
+
+    # ------------------------------------------------------------------
+    # Internal helpers — not part of the public API
+    # ------------------------------------------------------------------
+
+    def _commit(self) -> None:
+        with self._lock:
+            self._pending_batch.clear()
+
+    def _rollback(self) -> None:
+        with self._lock:
+            self._queue.extendleft(reversed(self._pending_batch))
+            self._pending_batch.clear()
 
     @property
     def size(self) -> int:
