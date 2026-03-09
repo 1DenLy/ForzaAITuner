@@ -4,13 +4,16 @@
 Отвечает за конвертацию плоских словарей формы во вложенную структуру и маппинг ошибок.
 """
 
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal
+from pydantic import ValidationError
 
 from desktop_client.application.config_state_manager import ConfigStateManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
 from desktop_client.application.exceptions import ConfigLockedError
+from desktop_client.domain.tuning import TuningSetup
 from desktop_client.domain.tuning_defaults import TuningDefaults
 
 
@@ -21,8 +24,11 @@ class ConfigViewModel(QObject):
     """
 
     # --- Сигналы ---
-    # Передает словарь ошибок вида {"tires.front_pressure_bar": "Ошибка..."}
-    validation_failed = Signal(dict)
+    # Передает словарь field_errors и список global_errors
+    validation_failed = Signal(dict, list)
+    
+    # Сигнал загрузки пресета в форму
+    preset_loaded = Signal(dict)
     
     # Сигнал успешного сохранения
     config_saved = Signal()
@@ -71,8 +77,8 @@ class ConfigViewModel(QObject):
         result = self._validator.validate(raw_data_dict)
         
         if not result.is_valid:
-            formatted_errors = self._format_pydantic_errors(result.errors)
-            self.validation_failed.emit(formatted_errors)
+            field_errors, global_errors = self._format_pydantic_errors(result.errors)
+            self.validation_failed.emit(field_errors, global_errors)
             return
 
         try:
@@ -81,12 +87,32 @@ class ConfigViewModel(QObject):
         except ConfigLockedError as e:
             self.global_error_occurred.emit(str(e))
 
-    def _format_pydantic_errors(self, pydantic_errors: dict[str, str]) -> dict[str, str]:
+    def load_config_from_file(self, filepath: str) -> None:
         """
-        Преобразует пути ошибок от ConfigValidatorService (с ' -> ' сепаратором) в точечную нотацию.
+        Загружает пресет из файла, валидируя его схему Pydantic.
+        Если схема верна, пробрасывает сырые данные дальше во View.
         """
-        formatted = {}
+        try:
+            text = Path(filepath).read_text(encoding="utf-8")
+            config = TuningSetup.model_validate_json(text)
+            self.preset_loaded.emit(config.model_dump(mode="json"))
+        except ValidationError as e:
+            # Для ошибок структуры файла при парсинге
+            self.global_error_occurred.emit(f"Ошибка содержимого файла пресета:\n{str(e)}")
+        except Exception as e:
+            self.global_error_occurred.emit(f"Ошибка чтения файла:\n{str(e)}")
+
+    def _format_pydantic_errors(self, pydantic_errors: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+        """
+        Разделяет ошибки от ConfigValidatorService на field_errors и global_errors.
+        Пути с сепаратором ' -> ' форматируются в точечную нотацию. 
+        """
+        field_errors = {}
+        global_errors = []
         for loc_key, msg in pydantic_errors.items():
-            dot_key = loc_key.replace(" -> ", ".")
-            formatted[dot_key] = msg
-        return formatted
+            if loc_key == "__root__" or loc_key == "":
+                global_errors.append(msg)
+            else:
+                dot_key = loc_key.replace(" -> ", ".")
+                field_errors[dot_key] = msg
+        return field_errors, global_errors
