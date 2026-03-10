@@ -4,32 +4,44 @@ The `TelemetryManager` is a high-level **Orchestrator** (Facade) designed to hid
 
 ## Core Responsibilities
 
-1. **Initialization:** Instantiates and connects `LocalBuffer`, `SyncWorker`, and `RealCoreFacade`.
-2. **Lifecycle Control:** Provides simple `async` methods to start and stop the entire data pipeline.
-3. **Dependency Injection:** Passes the `TelemetrySerializer` instance to the `SyncWorker`, delegating the responsibility of data mapping.
+1. **Lifecycle Control:** Provides simple `async` methods to start and stop the entire data pipeline.
+2. **Dependency Injection:** Relies on abstractions (`IBuffer`, `ISyncWorker`, `ICoreFacade`) passed via its constructor, adhering to the Dependency Inversion Principle (DIP). This allows for easier testing and decouples the manager from specific implementations.
 
 ## Class Definition
 
 ```mermaid
 classDiagram
     class TelemetryManager {
-        -api_url: str
-        -local_buffer: LocalBuffer
-        -sync_worker: SyncWorker
-        -core_facade: RealCoreFacade
-        +__init__(api_url: str)
+        -local_buffer: IBuffer
+        -sync_worker: ISyncWorker
+        -core_facade: ICoreFacade
+        +__init__(buffer: IBuffer, sync_worker: ISyncWorker, core_facade: ICoreFacade)
         +start_session() async
         +stop_session() async
     }
+    
+    class IBuffer {
+        <<interface>>
+    }
+    
+    class ISyncWorker {
+        <<interface>>
+    }
+    
+    class ICoreFacade {
+        <<interface>>
+    }
+    
+    TelemetryManager --> IBuffer : uses
+    TelemetryManager --> ISyncWorker : uses
+    TelemetryManager --> ICoreFacade : uses
 ```
 
 ## Methods Detail
 
-### `__init__(api_url: str)`
-Configures the environment. It is the only place where the concrete implementations are wired together.
-- Creates `LocalBuffer`.
-- Creates `SyncWorker` and passes the buffer + `TelemetrySerializer` instance.
-- Creates `RealCoreFacade` and passes the buffer as `out_queue`.
+### `__init__(buffer: IBuffer, sync_worker: ISyncWorker, core_facade: ICoreFacade)`
+Validates and assigns the provided abstractions. 
+By delegating component creation up to the Composition Root (`main.py`), `TelemetryManager` no longer violates the Single Responsibility Principle or DIP.
 
 ### `start_session() -> None`
 **Async.** Sequentially activates the pipeline:
@@ -45,4 +57,4 @@ Configures the environment. It is the only place where the concrete implementati
 ---
 
 > [!NOTE]
-> For a high-level overview of how data flows through these components, refer to [02_Data_Flow.md](file:///d:/ForzaAITuner/docs/03_Backend_Sync_Temp/02_Data_Flow.md).
+> For a high-level overview of how data flows through these components, refer to [02_Data_Flow.md](02_Data_Flow.md).

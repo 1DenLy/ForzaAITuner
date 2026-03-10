@@ -3,9 +3,8 @@ from typing import Any, List
 
 import structlog
 
-from desktop_client.backend_sync.local_buffer import LocalBuffer
-from desktop_client.backend_sync.sync_worker import SyncWorker
-from desktop_client.forza_core.application.core_facade import RealCoreFacade
+from desktop_client.backend_sync.protocols import IBuffer, ISyncWorker
+from desktop_client.presentation.interfaces.protocols import ICoreFacade
 
 logger = structlog.get_logger(__name__)
 
@@ -16,25 +15,11 @@ class TelemetryManager:
     Связывает ядро Форзы, локальный буфер и HTTP-воркер в единый конвейер.
     """
 
-    def __init__(self, api_url: str):
-        self.api_url = api_url
-        
-        # 1. Создаем локальный буфер
-        self.local_buffer = LocalBuffer()
-        
-        # 2. Создаем HTTP-воркер, который будет вычитывать данные из буфера.
-        #    Сериализатор определяется здесь — TelemetryManager знает о типах доменного
-        #    слоя; SyncWorker остаётся независимым от них (SRP).
-        self.sync_worker = SyncWorker(
-            buffer=self.local_buffer,
-            api_url=self.api_url,
-            serializer=_serialize_batch,
-        )
-        
-        # 3. Создаем фасад ядра Forza, передав ему буфер в качестве утиного out_queue
-        # LocalBuffer реализует интерфейс IOutQueue (в частности, метод put_nowait()), 
-        # который ожидается слоем forza_core (RealCoreFacade/IngestionService).
-        self.core_facade = RealCoreFacade(out_queue=self.local_buffer)
+    def __init__(self, buffer: IBuffer, sync_worker: ISyncWorker, core_facade: ICoreFacade):
+        # Dependencies injected from Composition Root
+        self.local_buffer = buffer
+        self.sync_worker = sync_worker
+        self.core_facade = core_facade
 
     async def start_session(self) -> None:
         """
@@ -61,14 +46,4 @@ class TelemetryManager:
         # Дожидаемся выполнения метода stop() у SyncWorker (выгребает остатки и отправляет)
         await self.sync_worker.stop()
         logger.info("Telemetry session pipeline stopped successfully.")
-
-
-def _serialize_batch(batch: List[Any]) -> List[dict]:
-    """Convert a batch of TelemetryPacket dataclasses to JSON-serialisable dicts.
-
-    Defined at module level (not inside SyncWorker) so that the worker stays
-    ignorant of domain types — only TelemetryManager, which assembles the
-    pipeline, needs to know the concrete packet format.
-    """
-    return [dataclasses.asdict(packet) for packet in batch]
 

@@ -6,16 +6,23 @@ from desktop_client.services.telemetry_manager import TelemetryManager
 
 @pytest.fixture
 def manager():
-    with patch("desktop_client.services.telemetry_manager.RealCoreFacade"):
-        with patch("desktop_client.services.telemetry_manager.SyncWorker"):
-            m = TelemetryManager(api_url="http://dummy")
-            # Override attributes with mocks
-            m.sync_worker.start = AsyncMock()
-            m.sync_worker.stop = AsyncMock()
-            m.core_facade.start_tracking = MagicMock()
-            m.core_facade.stop_tracking = MagicMock()
-            return m
-
+    # DIP makes testing easier - we just inject the mocks
+    buffer_mock = MagicMock()
+    
+    worker_mock = MagicMock()
+    worker_mock.start = AsyncMock()
+    worker_mock.stop = AsyncMock()
+    
+    facade_mock = MagicMock()
+    facade_mock.start_tracking = MagicMock()
+    facade_mock.stop_tracking = MagicMock()
+    
+    m = TelemetryManager(
+        buffer=buffer_mock, 
+        sync_worker=worker_mock, 
+        core_facade=facade_mock
+    )
+    return m
 @pytest.mark.asyncio
 async def test_start_session(manager):
     # Check the order: start worker, then start tracking

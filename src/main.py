@@ -19,6 +19,10 @@ from desktop_client.infrastructure.local_config_repository import LocalConfigRep
 from desktop_client.application.config_state_manager import ConfigStateManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
 from desktop_client.services.telemetry_manager import TelemetryManager
+from desktop_client.backend_sync.local_buffer import LocalBuffer
+from desktop_client.backend_sync.sync_worker import SyncWorker
+from desktop_client.forza_core.application.core_facade import RealCoreFacade
+from desktop_client.mappers.telemetry_mapper import serialize_batch
 
 # Presentation layer
 from desktop_client.presentation.services.dialog_service import DialogService
@@ -41,7 +45,22 @@ def setup_environment():
 def bootstrap_dependencies(settings):
     """Initializes and returns the core application dependencies."""
     logger.info("Initializing services...")
-    telemetry_manager = TelemetryManager(api_url=settings.network.api_url)
+    
+    # 1. Telemetry Pipeline Dependencies
+    local_buffer = LocalBuffer()
+    sync_worker = SyncWorker(
+        buffer=local_buffer,
+        api_url=settings.network.api_url,
+        serializer=serialize_batch,
+    )
+    core_facade = RealCoreFacade(out_queue=local_buffer)
+    
+    # Assembly
+    telemetry_manager = TelemetryManager(
+        buffer=local_buffer,
+        sync_worker=sync_worker,
+        core_facade=core_facade
+    )
 
     logger.info("Initializing ViewModels...")
     main_vm = MainViewModel(telemetry_manager)
@@ -90,6 +109,8 @@ async def async_main():
     try:
         settings = get_settings()
         logger.info(f"Configuration loaded successfully. Environment: {settings.env}")
+        # Security Note: sensitive parameters like settings.network.api_url 
+        # are intentionally omitted from startup logs to prevent leakage.
     except Exception as e:
         logger.critical(f"Failed to load configuration: {e}")
         sys.exit(1)
