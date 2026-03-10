@@ -45,6 +45,8 @@ def setup_environment():
 def bootstrap_dependencies(settings):
     """Initializes and returns the core application dependencies."""
     logger.info("Initializing services...")
+    from desktop_client.infrastructure.signal_bus import SignalBus
+    signal_bus = SignalBus()
     
     # 1. Telemetry Pipeline Dependencies
     local_buffer = LocalBuffer()
@@ -52,6 +54,7 @@ def bootstrap_dependencies(settings):
         buffer=local_buffer,
         api_url=settings.network.api_url,
         serializer=serialize_batch,
+        signal_bus=signal_bus,
     )
     core_facade = RealCoreFacade(out_queue=local_buffer)
     
@@ -72,10 +75,10 @@ def bootstrap_dependencies(settings):
     
     config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
     
-    return main_vm, config_vm, app_config_state_manager
+    return main_vm, config_vm, app_config_state_manager, signal_bus
 
 
-def setup_state_bridges(main_vm: MainViewModel, app_config_state_manager: ConfigStateManager):
+def setup_state_bridges(main_vm: MainViewModel, app_config_state_manager: ConfigStateManager, signal_bus=None):
     """Sets up the reactive bridges between view models and state managers."""
     # ── Config-state bridge ──────────────────────────────────────────────────
     # Unlock 'Start Session' when valid config is available
@@ -102,6 +105,13 @@ def setup_state_bridges(main_vm: MainViewModel, app_config_state_manager: Config
 
     main_vm.app_state.session_state_changed.connect(_on_session_state_changed)
 
+    # ── Backend-Error bridge ──────────────────────────────────────────────────
+    def _on_backend_error(event):
+        main_vm.error_occurred.emit(f"Backend Sync Error: {event.message}")
+        
+    if signal_bus:
+        signal_bus.backend_error_occurred.connect(_on_backend_error)
+
 
 async def async_main():
     """Async GUI entry point."""
@@ -117,10 +127,10 @@ async def async_main():
 
 
     # 2. Initialize Dependencies (Services & ViewModels)
-    main_vm, config_vm, app_config_state_manager = bootstrap_dependencies(settings)
+    main_vm, config_vm, app_config_state_manager, signal_bus = bootstrap_dependencies(settings)
 
     # 3. Setup reactive bridges
-    setup_state_bridges(main_vm, app_config_state_manager)
+    setup_state_bridges(main_vm, app_config_state_manager, signal_bus)
 
     # 4. Initialize Dialog Services and View (Window)
     logger.info("Initializing View...")

@@ -4,6 +4,8 @@ import aiohttp
 from typing import Any, Callable, List, Optional
 
 from desktop_client.backend_sync.local_buffer import LocalBuffer
+from desktop_client.infrastructure.signal_bus import SignalBus
+from desktop_client.domain.events import BackendErrorEvent
 
 logger = structlog.get_logger(__name__)
 
@@ -30,12 +32,14 @@ class SyncWorker:
         serializer: Callable[[List[Any]], List[dict]],
         batch_size: int = 60,
         interval_sec: float = 1.0,
+        signal_bus: Optional[SignalBus] = None,
     ) -> None:
         self.buffer = buffer
         self.api_url = api_url
         self._serializer = serializer
         self.batch_size = batch_size
         self.interval_sec = interval_sec
+        self._signal_bus = signal_bus
         self._is_running: bool = False
         self._task: Optional[asyncio.Task] = None
         self._session: Optional[aiohttp.ClientSession] = None
@@ -80,16 +84,58 @@ class SyncWorker:
         try:
             payload = self._serializer(batch)
             async with self._session.post(self.api_url, json=payload) as response:
-                return response.status in (200, 201)
+                if response.status not in (200, 201):
+                    logger.warning("Backend error response", status=response.status)
+                    if self._signal_bus:
+                        if response.status == 401:
+                            safe_msg = "Authorization failed. Please check your settings."
+                        elif response.status >= 500:
+                            safe_msg = "Backend server error. Retrying later."
+                        else:
+                            safe_msg = f"API error occurred (Status: {response.status})."
+                        
+                        self._signal_bus.backend_error_occurred.emit(
+                            BackendErrorEvent(
+                                code=response.status,
+                                message=safe_msg,
+                                is_transient=response.status >= 500
+                            )
+                        )
+                    return False
+                return True
 
         except asyncio.TimeoutError:
             logger.warning("Timeout while sending telemetry batch.")
+            if self._signal_bus:
+                self._signal_bus.backend_error_occurred.emit(
+                    BackendErrorEvent(
+                        code=408,
+                        message="Connection to server timed out.",
+                        is_transient=True
+                    )
+                )
             return False
         except aiohttp.ClientError as e:
             logger.warning("Network error while sending telemetry batch.", error=str(e))
+            if self._signal_bus:
+                self._signal_bus.backend_error_occurred.emit(
+                    BackendErrorEvent(
+                        code=503,
+                        message="Network error. Unable to reach server.",
+                        is_transient=True
+                    )
+                )
             return False
         except Exception as e:
             logger.error("Error serializing or sending batch.", error=str(e), exc_info=True)
+            if self._signal_bus:
+                self._signal_bus.backend_error_occurred.emit(
+                    BackendErrorEvent(
+                        code=500,
+                        message="An unexpected client error occurred.",
+                        is_transient=False
+                    )
+                )
             return False
 
     async def stop(self) -> None:

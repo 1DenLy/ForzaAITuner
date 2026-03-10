@@ -7,6 +7,7 @@ sequenceDiagram
     participant Core as forza_core
     participant Buf as LocalBuffer
     participant Sync as SyncWorker
+    participant EventBus as SignalBus
     participant API as Backend API
 
     loop while session is active
@@ -17,28 +18,35 @@ sequenceDiagram
     end
 
     loop On BatchReady Event Triggered
-        Sync->>Buf: take_batch(N)
+        Sync->>Buf: with Buf.transaction_n(N) as batch
         Buf-->>Sync: List[TelemetryDTO]
         Sync->>API: HTTPS POST /api/telemetry/batch (Headers: Authorization Bearer JWT)
         
         alt if Authorized & Network OK
             API-->>Sync: 200 OK
-            Sync->>Buf: commit() / delete_batch()
+            Note right of Buf: _commit() auto-called on clean exit
         else 401 Unauthorized (No/Invalid JWT)
             API-->>Sync: 401 Unauthorized
-            Sync->>Sync: log.error("Auth failed, stop syncing or refresh token")
+            Sync->>EventBus: emit BackendErrorEvent(401)
+            EventBus->>UI: show error popup
+            Sync->>Sync: log.error("Auth failed") & raise exception
+            Note right of Buf: _rollback() auto-called on exception
         else Network Error / Timeout
             API--xSync: Timeout / 500 Error
-            Sync->>Sync: log.warning("Keep data in buffer")
+            Sync->>EventBus: emit BackendErrorEvent(NetworkError)
+            EventBus->>UI: show error popup
+            Sync->>Sync: log.warning("Network issue") & raise exception
+            Note right of Buf: _rollback() auto-called on exception
         end
     end
 
     opt on User clicks Stop Session
         UI->>Sync: stop_sync()
-        Sync->>Buf: take_ALL_remaining()
+        Sync->>Buf: with Buf.transaction() as remaining
         Buf-->>Sync: List[TelemetryDTO]
         Sync->>API: HTTPS POST /api/telemetry/batch (Final, Headers: Auth JWT)
-        API-->>Sync: 200 OK / 401 Unauthorized
+        API-->>Sync: 200 OK
+        Note right of Buf: _commit() (auto)
         Sync-->>UI: status = "Session Saved & Closed"
     end
 ```

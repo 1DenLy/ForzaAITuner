@@ -12,6 +12,7 @@ classDiagram
         -batch_size : int
         -interval_sec : float
         -_serializer : Callable
+        -_signal_bus : Optional[SignalBus]
         -_is_running : bool
         -_task : Optional[Task]
         -_session : Optional[ClientSession]
@@ -26,17 +27,18 @@ classDiagram
 ## Operational Logic
 
 ### 1. The Async Loop (`_run_loop`)
-The worker executes an infinite loop as long as `_is_running` is true.
-- The worker calls `await buffer.async_wait_for_data()`, depending entirely on the abstract waiting mechanism with no knowledge of the underlying `asyncio.Event`.
-- Once woken up, it MUST clear the ready flag (`event.clear()`) and then retrieves the data via `await asyncio.to_thread(buffer.take_batch, n)` (this can also be wrapped seamlessly with `transaction_n()`).
-- **Resilience Tip:** Always wrap `buffer.take_batch` (or the transaction) in a `try...except` block. If the disk is momentarily locked by an antivirus or the OS, the worker must log the error and stay alive for the next cycle instead of crashing.
-- Using `asyncio.to_thread` here is critically important: it ensures that synchronous disk reads do not freeze the Event Loop, representing the modern standard for mixing sync file I/O and async network code.
-- If the HTTP request fails, the transaction will perform a `rollback` within the `IBuffer`.
-- The entire process repeats as data continues to accumulate.
+The worker executes a loop as long as `_is_running` is true.
+- The worker waits for new data (traditionally via `await asyncio.sleep()` or a more advanced waiting mechanism like `await buffer.async_wait_for_data()`).
+- Once ready, it retrieves data using the **`with buffer.transaction_n(batch_size) as batch:`** context manager. This ensures automatic commit on successful network responses and automatic rollback on any failures or exceptions.
+- **Resilience Tip:** If an error occurs during the network request, the context manager triggers `_rollback()`, returning the "in-flight" items to the head of the queue for the next retry attempt.
+- Using `asyncio.to_thread` is appropriate if the buffer implementation performs heavy synchronous disk I/O, ensuring the Event Loop remains responsive.
+- The entire process repeats as long as the session is active.
 
 ### 2. Dependency Inversion (SRP)
-The `SyncWorker` does not know "how" to serialize the telemetry. It receives a `serializer` function during initialization.
-- **Goal:** This allows the networking logic to remain stable even if the telemetry data structure changes.
+The `SyncWorker` does not know "how" to serialize the telemetry or how to communicate with the UI. 
+- It receives a `serializer` function during initialization for data manipulation.
+- It receives a `SignalBus` via constructor injection to asynchronously dispatch `BackendErrorEvent`s securely to the presentation layer without coupling.
+- **Goal:** This allows the networking logic to remain stable even if the telemetry data structure changes, and allows thread-safe UI error reporting.
 
 ### 3. Graceful Shutdown & Force Flush
 When the `stop()` method is called:
@@ -49,7 +51,7 @@ When the `stop()` method is called:
 
 | Method | Role |
 | :--- | :--- |
-| `__init__(buffer: IBuffer, ...)` | **Crucial:** Expects an `IBuffer` implementation. This ensures the worker can work with any storage (RAM, Disk, etc.) as long as it follows the contract. |
+| `__init__(buffer: IBuffer, ...)` | **Crucial:** Expects an `IBuffer` implementation and an optional `SignalBus`. Ensures decoupled storage and decoupled UI error reporting. |
 | `start()` | Initializes the `ClientSession` and spawns the `_run_loop` task. |
 | `_send_batch()` | Performs the `POST` request. Returns `True` if HTTP status is 200/201. |
 | `stop()` | Signals the loop to terminate and initiates the final data flush. |
