@@ -33,6 +33,12 @@ make setup-hooks
 python scripts/compile_ui.py
 ```
 
+### ❌ Не используйте "магические строки" (Hardcode)
+Все строки, которые видит пользователь (заголовки окон, сообщения об ошибках, тексты уведомлений), должны быть вынесены в централизованное хранилище ресурсов. Это необходимо для обеспечения консистентности UI и будущей локализации приложения.
+
+**ЗАПРЕЩЕНО:** Писать текст напрямую в вызовах `QMessageBox`, `QFileDialog` или `setText()`.
+**ПРАВИЛЬНО:** Использовать константы из `desktop_client.presentation.resources.strings.UIStrings`.
+
 ---
 
 ## 📋 Сценарии изменений (How-to)
@@ -88,7 +94,7 @@ python scripts/compile_ui.py
 - Каждый слайдер с live-лейблом имеет `label_name` и `label_format` в своём `WidgetBinding`.
 - `model_path` в каждом `WidgetBinding` соответствует реальному полю в модели домена.
 - Новое поле домена добавлено в метод создания дефолтных настроек (напр. `TuningDefaults.create()`).
-- Сигналы `validation_failed`, `config_saved` и `global_error_occurred` подключены во View.
+- Сигналы `validation_failed`, `config_saved`, `global_error_occurred` и `preset_loaded` подключены во View.
 
 ---
 
@@ -100,3 +106,15 @@ python scripts/compile_ui.py
 4. **Результат:**
    - **УСПЕХ:** Модель сохраняется, испускается сигнал `config_saved`, окно закрывается.
    - **ОШИБКА:** Испускается `validation_failed(errors)`. View вызывает `self.mapper.highlight_errors()` для подсветки проблемных полей красным. Окно остается открытым.
+
+---
+
+## 🔄 Жизненный цикл загрузки пресетов (Load Preset Flow)
+
+1. **Клик Open:** Пользователь нажимает кнопку открытия файла, срабатывает слот `_on_open_preset_clicked()` во View (`ConfigDialog`), который открывает диалог выбора файла.
+2. **Передача пути:** Выбранный путь передается во ViewModel через абстракцию `IConfigViewModel.load_config_from_file(filepath)`.
+3. **Чтение I/O:** ViewModel делегирует чтение абстракции `IPresetRepository.load_preset(filepath)` (инкапсулирующей проверки пути и размера).
+4. **Валидация Pydantic:** ViewModel парсит JSON-текст через `TuningSetup.model_validate_json(text)`.
+5. **Результат:**
+   - **УСПЕХ:** Модель распарсена, испускается сигнал `preset_loaded(dict)`. View обновляет виджеты через маппер и показывает уведомление об успехе.
+   - **ОШИБКА:** Испускается `global_error_occurred(msg)`. View показывает окно с критической ошибкой.

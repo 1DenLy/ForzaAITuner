@@ -5,18 +5,19 @@ from typing import Any
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QWidget, QFileDialog
 from PySide6.QtCore import SIGNAL
 
-from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
+from desktop_client.presentation.interfaces.protocols import IConfigViewModel
 from desktop_client.presentation.ui_gen.ui_config_dialog import Ui_ConfigDialog
 from desktop_client.presentation.mappers.tuning_binder import TuningMapper
+from desktop_client.presentation.resources.strings import UIStrings
 
 
 class ConfigDialog(QDialog):
     """
     Окно конфигурации (View), использующее сгенерированный UI (ui_config_dialog.py).
-    Связывается с ConfigViewModel для валидации и передачи данных.
+    Связывается с IConfigViewModel для валидации и передачи данных.
     """
 
-    def __init__(self, view_model: ConfigViewModel, parent: QWidget | None = None) -> None:
+    def __init__(self, view_model: IConfigViewModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.vm = view_model
 
@@ -93,8 +94,8 @@ class ConfigDialog(QDialog):
         """
         filepath, _ = QFileDialog.getOpenFileName(
             self,
-            caption="Open preset",
-            filter="JSON Files (*.json)"
+            caption=UIStrings.CAPTION_OPEN_PRESET,
+            filter=UIStrings.FILE_FILTER_JSON
         )
         if filepath:
             self.vm.load_config_from_file(filepath)
@@ -104,8 +105,8 @@ class ConfigDialog(QDialog):
         self.mapper.export_to_ui(preset_data, self.ui)
         QMessageBox.information(
             self, 
-            "Preset loaded", 
-            "Preset loaded successfully!\nDon't forget to click 'Save' to apply it."
+            UIStrings.TITLE_PRESET_LOADED, 
+            UIStrings.MSG_PRESET_LOAD_SUCCESS
         )
 
     def _on_validation_failed(self, field_errors: dict[str, str], global_errors: list[str]) -> None:
@@ -118,10 +119,10 @@ class ConfigDialog(QDialog):
             error_lines = [f"• {msg}" for msg in global_errors]
             QMessageBox.warning(
                 self,
-                "Validation error",
-                "Invalid data detected:\n\n" + "\n".join(error_lines),
+                UIStrings.TITLE_VALIDATION_ERROR,
+                UIStrings.MSG_VALIDATION_FAILED_PREFIX + "\n".join(error_lines),
             )
 
     def _on_global_error(self, message: str) -> None:
         """Critical error (e.g., ConfigLockedError)."""
-        QMessageBox.critical(self, "Saving error", message)
+        QMessageBox.critical(self, UIStrings.TITLE_SAVING_ERROR, message)

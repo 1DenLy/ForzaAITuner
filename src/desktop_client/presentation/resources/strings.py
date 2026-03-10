@@ -15,6 +15,9 @@ class UIStrings:
     TITLE_ERROR = "Error"
     TITLE_INFO = "Information"
     TITLE_SELECT_CONFIG = "Select Configuration File"
+    TITLE_PRESET_LOADED = "Preset loaded"
+    TITLE_VALIDATION_ERROR = "Validation error"
+    TITLE_SAVING_ERROR = "Saving error"
 
     # Status Messages
     STATUS_IDLE = "Idle"
@@ -23,6 +26,14 @@ class UIStrings:
     STATUS_RACING = "Session in Progress..."
     STATUS_SAVING = "Saving Data..."
     STATUS_ERROR = "Error Occurred"
+
+    # User Feedback Messages
+    MSG_PRESET_LOAD_SUCCESS = "Preset loaded successfully!\nDon't forget to click 'Save' to apply it."
+    MSG_VALIDATION_FAILED_PREFIX = "Invalid data detected:\n\n"
+
+    # File Dialog Captions
+    CAPTION_OPEN_PRESET = "Open preset"
+    FILE_FILTER_JSON = "JSON Files (*.json)"
 
     # Button Labels
     BTN_START = "Start Session"
