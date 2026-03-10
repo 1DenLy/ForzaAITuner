@@ -41,7 +41,7 @@ classDiagram
 
 ### `__init__(buffer: IBuffer, sync_worker: ISyncWorker, core_facade: ICoreFacade)`
 Validates and assigns the provided abstractions. 
-By delegating component creation up to the Composition Root (`main.py`), `TelemetryManager` no longer violates the Single Responsibility Principle or DIP.
+By delegating component creation up to the Composition Root (`main.py`), `TelemetryManager` no longer violates the Single Responsibility Principle or DIP. *(Note: `RealCoreFacade` also follows this pattern internally, receiving dependencies like `IAsyncRunner` from `main.py`)*.
 
 ### `start_session() -> None`
 **Async.** Sequentially activates the pipeline:

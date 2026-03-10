@@ -28,3 +28,19 @@ class IOutQueue(Protocol):
         inside the concrete adapter.
         """
         ...
+
+class IAsyncRunner(Protocol):
+    """
+    Interface for running an asyncio event loop in a dedicated environment (e.g., background thread).
+    """
+    def start(self) -> None:
+        """Starts the runner environment."""
+        ...
+
+    def stop(self) -> None:
+        """Stops the runner environment gracefully."""
+        ...
+
+    def submit(self, coro: 'asyncio.coroutine') -> 'asyncio.Future': # type: ignore
+        """Submits a coroutine to run in the managed event loop from another thread."""
+        ...

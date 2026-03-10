@@ -1,12 +1,10 @@
 import asyncio
 import logging
-import threading
-from typing import Optional
+from typing import Optional, Callable
 
 from desktop_client.presentation.interfaces.protocols import ICoreFacade
-from desktop_client.forza_core.domain.interfaces import IOutQueue
+from desktop_client.forza_core.domain.interfaces import IOutQueue, IAsyncRunner, IPacketParser
 from .ingestion_service import IngestionService
-from .packet_parser import PacketParser
 from desktop_client.forza_core.infrastructure.udp_transport import UdpListener
 from config import get_settings
 
@@ -18,38 +16,32 @@ class RealCoreFacade(ICoreFacade):
     Concrete implementation of the ICoreFacade.
     
     Orchestrates the actual Forza Core components (IngestionService, UDP listener).
-    It uses a standalone Event Loop running in a dedicated background thread to
-    prevent blocking the UI and properly isolate asyncio paradigms from standard threads.
+    It uses an injected IAsyncRunner to execute async ingestion tasks.
     """
     
-    def __init__(self, out_queue: IOutQueue):
+    def __init__(self, 
+                 out_queue: IOutQueue, 
+                 async_runner: IAsyncRunner,
+                 packet_parser: IPacketParser,
+                 ingestion_factory: Callable[[asyncio.Queue, IOutQueue, IPacketParser], IngestionService]):
         """
-        Receives out_queue from UI.
-        Internally creates UDP queue, listener, parser and ingestion service.
+        Receives dependencies from Composition Root.
         """
         self._out_queue = out_queue
+        self._async_runner = async_runner
+        self._packet_parser = packet_parser
+        self._ingestion_factory = ingestion_factory
+        
         self._is_running = False
         
-        # Dedicated Event Loop Thread for I/O and asyncio operations
-        self._loop = asyncio.new_event_loop()
-        self._loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
-        self._loop_thread.start()
+        # Start async runner thread if not already running
+        self._async_runner.start()
         
         self._ingestion_task: Optional[asyncio.Task] = None
         self._udp_transport: Optional[asyncio.DatagramTransport] = None
         
         # Load settings for network config
         self._settings = get_settings()
-
-    def _run_event_loop(self) -> None:
-        """Runs the asyncio event loop in a dedicated background thread."""
-        logger.info("Core asyncio event loop thread started.")
-        asyncio.set_event_loop(self._loop)
-        try:
-            self._loop.run_forever()
-        finally:
-            self._loop.close()
-            logger.info("Core asyncio event loop thread stopped.")
 
     def start_tracking(self) -> None:
         if self._is_running:
@@ -60,28 +52,24 @@ class RealCoreFacade(ICoreFacade):
         self._is_running = True
         
         # Schedule the coroutine in the background event loop
-        asyncio.run_coroutine_threadsafe(self._start_async(), self._loop)
+        self._async_runner.submit(self._start_async())
 
     async def _start_async(self) -> None:
         """Starts the ingestion service inside the event loop via asyncio.create_task and creates UDP endpoint."""
+        loop = asyncio.get_running_loop()
         # 1. Create internal UDP queue
         udp_queue = asyncio.Queue(maxsize=1000)
         
-        # 2. Composition: initialize dependencies
-        parser = PacketParser()
-        self._ingestion_service = IngestionService(
-            queue=udp_queue,
-            out_queue=self._out_queue,
-            parser=parser
-        )
+        # 2. Composition: inject dependencies into ingestion service via factory
+        self._ingestion_service = self._ingestion_factory(udp_queue, self._out_queue, self._packet_parser)
         
         # 3. Start ingestion task
-        self._ingestion_task = self._loop.create_task(self._ingestion_service.run())
+        self._ingestion_task = loop.create_task(self._ingestion_service.run())
         logger.info("IngestionService task created and running.")
         
         # 4. Create UDP Endpoint
         try:
-            transport, protocol = await self._loop.create_datagram_endpoint(
+            transport, protocol = await loop.create_datagram_endpoint(
                 lambda: UdpListener(udp_queue),
                 local_addr=(self._settings.network.host, self._settings.network.port)
             )
@@ -97,7 +85,7 @@ class RealCoreFacade(ICoreFacade):
         logger.info("Stopping Core Tracking...")
         self._is_running = False
         
-        future = asyncio.run_coroutine_threadsafe(self._stop_async(), self._loop)
+        future = self._async_runner.submit(self._stop_async())
         try:
             # Thread-safe stopping mechanism with a time limit
             future.result(timeout=2.0)
@@ -127,9 +115,7 @@ class RealCoreFacade(ICoreFacade):
     def cleanup(self) -> None:
         logger.info("Cleaning up Core resources...")
         self.stop_tracking()
-        self._loop.call_soon_threadsafe(self._loop.stop)
-        if self._loop_thread.is_alive():
-            self._loop_thread.join(timeout=2.0)
+        self._async_runner.stop()
 
     def is_tracking(self) -> bool:
         return self._is_running

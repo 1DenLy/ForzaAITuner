@@ -60,6 +60,11 @@ def log_secure_validation_error(e: ValidationError, logger_instance: logging.Log
     logger_instance.critical(f"Failed to validate configuration.\nDetails:\n{error_message}")
 
 
+from desktop_client.forza_core.infrastructure.asyncio_runner import AsyncioThreadRunner
+from desktop_client.forza_core.application.packet_parser import PacketParser
+from desktop_client.forza_core.application.ingestion_service import IngestionService
+from desktop_client.forza_core.domain.interfaces import IOutQueue, IPacketParser
+
 def bootstrap_dependencies(settings):
     """Initializes and returns the core application dependencies."""
     logger.info("Initializing services...")
@@ -74,7 +79,19 @@ def bootstrap_dependencies(settings):
         serializer=serialize_batch,
         signal_bus=signal_bus,
     )
-    core_facade = RealCoreFacade(out_queue=local_buffer)
+    
+    async_runner = AsyncioThreadRunner()
+    packet_parser = PacketParser()
+    
+    def ingestion_factory(udp_q: asyncio.Queue, out_q: IOutQueue, parser: IPacketParser) -> IngestionService:
+        return IngestionService(queue=udp_q, out_queue=out_q, parser=parser)
+
+    core_facade = RealCoreFacade(
+        out_queue=local_buffer,
+        async_runner=async_runner,
+        packet_parser=packet_parser,
+        ingestion_factory=ingestion_factory
+    )
     
     # Assembly
     telemetry_manager = TelemetryManager(

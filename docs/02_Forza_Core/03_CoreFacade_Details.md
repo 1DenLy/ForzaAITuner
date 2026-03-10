@@ -44,21 +44,23 @@ flowchart TB
 
 ## Изолированность потока выполнения
 Модуль **ни в коем случае не должен блокировать основной поток** вызывающего приложения (например, UI).
-Цикл прослушивания UDP-порта работает асинхронно в изолированном фоновом потоке. Для этого создается новый `event loop` внутри отдельного потока:
-* Создание и запуск: `threading.Thread(target=_run_event_loop, daemon=True).start()`.
-* Асинхронный цикл: `asyncio.new_event_loop()` внутри этого потока.
-* Межпоточное взаимодействие: `asyncio.run_coroutine_threadsafe(_start_async(), self._loop)`.
+Цикл прослушивания UDP-порта работает асинхронно в изолированном фоновом потоке, который управляется через внедренную зависимость `IAsyncRunner` (реализация `AsyncioThreadRunner`). Это устраняет нарушение SRP фасадом:
+* Запуск инфраструктуры потока: `self._async_runner.start()`.
+* Межпоточное взаимодействие и передача задач в фоновый Event Loop: `self._async_runner.submit(self._start_async())`.
 
 ```mermaid
 sequenceDiagram
     participant Main as Main Thread
-    participant CW as Core Worker Thread
+    participant AR as AsyncioThreadRunner
+    participant CW as CoreFacade Async Task
     
-    Main->>CW: Инициализация CoreFacade()
-    Note over CW: Выделенный Event Loop работает<br>в фоновом daemon-потоке
-    CW->>CW: Создание потока и Event Loop
+    Main->>AR: Инициализация Runner()
+    Main->>Main: Инициализация CoreFacade(runner)
+    Note over AR: Выделенный Event Loop работает<br>в фоновом daemon-потоке
+    Main->>AR: facade.__init__() вызывает runner.start()
 
-    Main->>CW: facade.start()<br>[Синхронный вызов]
-    Note right of CW: Пересечение границы потоков!
-    CW->>CW: Запуск _start_async() в фоне
+    Main->>Main: facade.start()<br>[Синхронный вызов из UI]
+    Note right of Main: Пересечение границы потоков!
+    Main->>AR: runner.submit(_start_async())
+    AR->>CW: Запуск _start_async() в фоне
 ```
