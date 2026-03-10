@@ -52,8 +52,37 @@ class TuningMapper:
     """
     Класс, содержащий карту привязок и логику двунаправленного обмена данными.
     """
-    def __init__(self):
+    def __init__(self, extractors: dict[type[QWidget], Callable[[Any], Any]] | None = None,
+                 injectors: dict[type[QWidget], Callable[[Any, Any], None]] | None = None):
+        # Базовые стратегии извлечения данных
+        self.extractors = extractors or {
+            QCheckBox: lambda w: w.isChecked(),
+            QComboBox: lambda w: w.currentText(),
+            QAbstractSpinBox: lambda w: w.value(),
+            QAbstractSlider: lambda w: w.value(),
+            QLineEdit: lambda w: w.text(),
+        }
+        
+        # Базовые стратегии установки данных
+        self.injectors = injectors or {
+            QCheckBox: lambda w, v: w.setChecked(bool(v)),
+            QComboBox: lambda w, v: w.setCurrentText(str(v)),
+            QAbstractSpinBox: lambda w, v: w.setValue(v),
+            QAbstractSlider: lambda w, v: w.setValue(v),
+            QLineEdit: lambda w, v: w.setText(str(v)),
+            QLabel: lambda w, v: w.setText(str(v)),
+        }
+        
         self.bindings: list[WidgetBinding] = self._init_bindings()
+
+    def register_widget_type(self, widget_type: type[QWidget], 
+                             extractor: Callable[[Any], Any], 
+                             injector: Callable[[Any, Any], None]) -> None:
+        """
+        Добавление поддержки новых типов виджетов без изменения кода самого маппера (OCP).
+        """
+        self.extractors[widget_type] = extractor
+        self.injectors[widget_type] = injector
 
     def _init_bindings(self) -> list[WidgetBinding]:
         """
@@ -281,45 +310,43 @@ class TuningMapper:
         return getattr(ui_widgets, widget_name, None)
 
     def _ui_get_value(self, widget: QWidget) -> Any:
-        """
-        Извлечение значения виджета через match/case по типу (Python 3.10+).
-        Порядок ветвей важен: QCheckBox раньше QAbstractButton,
-        QComboBox раньше QLineEdit — иначе более общий тип перехватит специализированный.
-        """
-        match widget:
-            case QCheckBox():
-                return widget.isChecked()
-            case QComboBox():
-                return widget.currentText()
-            case QAbstractSpinBox() | QAbstractSlider():
-                return widget.value()
-            case QLineEdit():
-                return widget.text()
-            case _:
-                logger.warning(
-                    "_ui_get_value: неизвестный тип виджета %s — значение не прочитано",
-                    type(widget).__name__,
-                )
-                return None
+        """Извлечение значения виджета через реестр стратегий (Extractors)."""
+        widget_type = type(widget)
+        
+        # Быстрый поиск по точному типу
+        if widget_type in self.extractors:
+            return self.extractors[widget_type](widget)
+            
+        # Поиск по иерархии (MRO), соблюдая порядок регистрации
+        for cls, extractor in self.extractors.items():
+            if isinstance(widget, cls):
+                return extractor(widget)
+
+        logger.warning(
+            "_ui_get_value: неизвестный тип виджета %s — значение не прочитано",
+            widget_type.__name__,
+        )
+        return None
 
     def _ui_set_value(self, widget: QWidget, value: Any) -> None:
-        """
-        Установка значения виджета через match/case по типу (Python 3.10+).
-        """
-        match widget:
-            case QCheckBox():
-                widget.setChecked(bool(value))
-            case QComboBox():
-                widget.setCurrentText(str(value))
-            case QAbstractSpinBox() | QAbstractSlider():
-                widget.setValue(value)
-            case QLineEdit() | QLabel():
-                widget.setText(str(value))
-            case _:
-                logger.warning(
-                    "_ui_set_value: неизвестный тип виджета %s — значение не установлено",
-                    type(widget).__name__,
-                )
+        """Установка значения виджета через реестр стратегий (Injectors)."""
+        widget_type = type(widget)
+        
+        # Быстрый поиск по точному типу
+        if widget_type in self.injectors:
+            self.injectors[widget_type](widget, value)
+            return
+            
+        # Поиск по иерархии (MRO), соблюдая порядок регистрации
+        for cls, injector in self.injectors.items():
+            if isinstance(widget, cls):
+                injector(widget, value)
+                return
+
+        logger.warning(
+            "_ui_set_value: неизвестный тип виджета %s — значение не установлено",
+            widget_type.__name__,
+        )
 
     def update_from_ui(self, ui_widgets: UiSource) -> dict[str, Any]:
         """
