@@ -1,7 +1,7 @@
 from enum import Enum
 from pathlib import Path
 from functools import lru_cache
-from pydantic import BaseModel, Field, SecretStr, PostgresDsn
+from pydantic import BaseModel, Field, SecretStr, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,6 +69,16 @@ class AIConfig(BaseModel):
     enable_inference: bool = Field(default=True, description="Enable AI inference")
     device: str = Field(default="cpu", description="Inference device (cpu/cuda)")
 
+    @field_validator("model_path")
+    @classmethod
+    def validate_path(cls, v: Path) -> Path:
+        resolved = v.resolve(strict=False)
+        if not resolved.is_relative_to(BASE_DIR):
+            raise ValueError(f"Path traversal detected: {v} is outside of BASE_DIR")
+        if not resolved.exists() or not resolved.is_file():
+            raise ValueError(f"File not found: {v}")
+        return v
+
 #  UI config
 class UIConfig(BaseModel):
     """UI config"""
@@ -85,6 +95,16 @@ class UIConfig(BaseModel):
         default=Path("src/desktop_client/presentation/assets/settings_dialog.ui"),
         description="Path to settings UI file"
     )
+
+    @field_validator("main_window_path", "config_dialog_path", "settings_dialog_path")
+    @classmethod
+    def validate_path(cls, v: Path) -> Path:
+        resolved = v.resolve(strict=False)
+        if not resolved.is_relative_to(BASE_DIR):
+            raise ValueError(f"Path traversal detected: {v} is outside of BASE_DIR")
+        if not resolved.exists() or not resolved.is_file():
+            raise ValueError(f"File not found: {v}")
+        return v
 
 #  Main Settings
 class Settings(BaseSettings):

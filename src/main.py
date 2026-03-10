@@ -6,6 +6,7 @@ import sys
 
 # Third-party imports
 import qasync
+from pydantic import ValidationError
 from PySide6.QtWidgets import QApplication
 
 # Application configuration
@@ -41,6 +42,22 @@ def setup_environment():
     """Sets up the environment for the application."""
     if str(BASE_DIR) not in sys.path:
         sys.path.insert(0, str(BASE_DIR))
+
+def log_secure_validation_error(e: ValidationError, logger_instance: logging.Logger):
+    """
+    Safely logs Pydantic ValidationErrors without leaking sensitive inputs
+    (like passwords or internal absolute paths).
+    """
+    error_list = e.errors(include_url=False, include_input=False)
+    
+    formatted_errors = []
+    for error in error_list:
+        loc = " -> ".join([str(p) for p in error.get("loc", ())])
+        msg = error.get("msg", "Unknown error")
+        formatted_errors.append(f"Field [{loc}]: {msg}")
+        
+    error_message = "\n".join(formatted_errors)
+    logger_instance.critical(f"Failed to validate configuration.\nDetails:\n{error_message}")
 
 
 def bootstrap_dependencies(settings):
@@ -123,8 +140,11 @@ async def async_main():
         logger.info(f"Configuration loaded successfully. Environment: {settings.env}")
         # Security Note: sensitive parameters like settings.network.api_url 
         # are intentionally omitted from startup logs to prevent leakage.
+    except ValidationError as e:
+        log_secure_validation_error(e, logger)
+        sys.exit(1)
     except Exception as e:
-        logger.critical(f"Failed to load configuration: {e}")
+        logger.critical(f"Failed to load configuration (System Error): {e}")
         sys.exit(1)
 
 
