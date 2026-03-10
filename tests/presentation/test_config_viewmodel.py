@@ -78,8 +78,10 @@ def test_load_config_from_file_success(view_model, qtbot, tmp_path):
     import json
     test_file.write_text(json.dumps(valid_json), encoding="utf-8")
 
-    with qtbot.waitSignal(view_model.preset_loaded) as blocker:
-        view_model.load_config_from_file(str(test_file))
+    # Patch BASE_DIR so that our tmp_path is considered "inside the sandbox"
+    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
+        with qtbot.waitSignal(view_model.preset_loaded) as blocker:
+            view_model.load_config_from_file(str(test_file))
     
     # The loaded dictionary should equal our defaults
     assert blocker.args == [valid_json]
@@ -89,14 +91,32 @@ def test_load_config_from_file_validation_error(view_model, qtbot, tmp_path):
     test_file = tmp_path / "test.json"
     test_file.write_text('{"tires": {"front_pressure_bar": "INVALID_FLOAT"}}', encoding="utf-8")
 
-    with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
-        view_model.load_config_from_file(str(test_file))
+    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
+        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+            view_model.load_config_from_file(str(test_file))
     
     assert "Ошибка содержимого файла пресета" in blocker.args[0]
 
-def test_load_config_from_file_read_error(view_model, qtbot):
-    # Pass non-existent file
-    with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
-        view_model.load_config_from_file("non_existent_file.json")
+def test_load_config_from_file_read_error(view_model, qtbot, tmp_path):
+    # Pass non-existent file inside the sandbox
+    test_file = tmp_path / "non_existent_file.json"
+    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
+        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+            view_model.load_config_from_file(str(test_file))
     
     assert "Ошибка чтения файла" in blocker.args[0]
+
+def test_load_config_from_file_security_violation(view_model, qtbot, tmp_path):
+    # Setup test file outside our sandbox
+    test_file = tmp_path / "test.json"
+    test_file.touch()
+    
+    # Set sandbox to a DIFFERENT directory
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    
+    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", sandbox):
+        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+            view_model.load_config_from_file(str(test_file))
+            
+    assert "Ошибка безопасности" in blocker.args[0]

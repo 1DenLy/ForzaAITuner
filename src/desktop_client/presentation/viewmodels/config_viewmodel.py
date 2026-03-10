@@ -15,6 +15,8 @@ from desktop_client.application.config_validator_service import ConfigValidatorS
 from desktop_client.application.exceptions import ConfigLockedError
 from desktop_client.domain.tuning import TuningSetup
 from desktop_client.domain.tuning_defaults import TuningDefaults
+from desktop_client.presentation.services.security_utils import SecurityUtils
+from config import BASE_DIR
 
 
 class ConfigViewModel(QObject):
@@ -93,12 +95,21 @@ class ConfigViewModel(QObject):
         Если схема верна, пробрасывает сырые данные дальше во View.
         """
         try:
-            text = Path(filepath).read_text(encoding="utf-8")
+            # 1. Security Validation: Path Traversal & DoS (File size)
+            safe_path = SecurityUtils.validate_safe_path(filepath, BASE_DIR)
+            SecurityUtils.validate_file_size(safe_path)
+
+            # 2. Reading and Parsing
+            text = safe_path.read_text(encoding="utf-8")
             config = TuningSetup.model_validate_json(text)
             self.preset_loaded.emit(config.model_dump(mode="json"))
         except ValidationError as e:
-            # Для ошибок структуры файла при парсинге
+            # Для ошибок структуры файла при парсинге (Pydantic ValidationError наследуется от ValueError, 
+            # поэтому этот блок должен идти ПЕРВЫМ)
             self.global_error_occurred.emit(f"Ошибка содержимого файла пресета:\n{str(e)}")
+        except (PermissionError, ValueError) as e:
+            # Security violations (Traversal or oversized file)
+            self.global_error_occurred.emit(f"Ошибка безопасности:\n{str(e)}")
         except Exception as e:
             self.global_error_occurred.emit(f"Ошибка чтения файла:\n{str(e)}")
 
