@@ -14,6 +14,7 @@ from config import BASE_DIR, get_settings
 # Domain & Infrastructure layer
 from desktop_client.domain.tuning import TuningSetup
 from desktop_client.infrastructure.local_config_repository import LocalConfigRepository
+from desktop_client.infrastructure.local_preset_repository import LocalPresetRepository
 
 # Application layer & Services
 from desktop_client.application.config_state_manager import ConfigStateManager
@@ -70,10 +71,11 @@ def bootstrap_dependencies(settings):
     
     app_config_validator = ConfigValidatorService(TuningSetup)
     local_config_repo = LocalConfigRepository(BASE_DIR)
+    local_preset_repo = LocalPresetRepository(BASE_DIR)
     app_config_state_manager = ConfigStateManager(local_config_repo)
     app_config_state_manager.initialize(TuningSetup.model_validate)
     
-    config_vm = ConfigViewModel(app_config_validator, app_config_state_manager)
+    config_vm = ConfigViewModel(app_config_validator, app_config_state_manager, local_preset_repo)
     
     return main_vm, config_vm, app_config_state_manager, signal_bus
 

@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, Any
 from desktop_client.presentation.state.app_state import AppState
 
 
@@ -64,4 +64,35 @@ class IDialogService(Protocol):
         ...
 
     def show_settings_dialog(self) -> None:
+        ...
+
+
+class IConfigViewModel(Protocol):
+    """
+    Interface for the Config Dialog's ViewModel.
+    Applying DIP: ConfigDialog depends on this abstraction.
+    """
+    # Signals (type-hinted as Any for Protocol compatibility)
+    validation_failed: Any
+    preset_loaded: Any
+    config_saved: Any
+    global_error_occurred: Any
+
+    def get_initial_data(self) -> dict[str, Any]:
+        ...
+
+    def apply_config(self, raw_data_dict: dict[str, Any]) -> None:
+        ...
+
+    def load_config_from_file(self, filepath: str) -> None:
+        ...
+
+
+class IPresetRepository(Protocol):
+    """
+    Interface for reading configuration presets from storage.
+    Applying SRP: ViewModel delegates file I/O to this abstraction.
+    """
+    def load_preset(self, filepath: str) -> str:
+        """Loads a preset file and returns its raw JSON content."""
         ...

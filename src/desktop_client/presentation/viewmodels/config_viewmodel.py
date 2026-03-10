@@ -15,8 +15,7 @@ from desktop_client.application.config_validator_service import ConfigValidatorS
 from desktop_client.application.exceptions import ConfigLockedError
 from desktop_client.domain.tuning import TuningSetup
 from desktop_client.domain.tuning_defaults import TuningDefaults
-from desktop_client.presentation.services.security_utils import SecurityUtils
-from config import BASE_DIR
+from desktop_client.presentation.interfaces.protocols import IPresetRepository
 
 
 class ConfigViewModel(QObject):
@@ -42,6 +41,7 @@ class ConfigViewModel(QObject):
         self,
         validator: ConfigValidatorService,
         state_manager: ConfigStateManager,
+        preset_repository: IPresetRepository,
         parent: QObject | None = None
     ) -> None:
         """
@@ -50,11 +50,13 @@ class ConfigViewModel(QObject):
         Args:
             validator: Сервис валидации сырых данных в модели
             state_manager: Менеджер состояния для хранения конфигурации
+            preset_repository: Репозиторий для загрузки пресетов
             parent: Родительский QObject
         """
         super().__init__(parent)
         self._validator = validator
         self._state_manager = state_manager
+        self._preset_repository = preset_repository
 
     # ------------------------------------------------------------------ #
     # Public Methods                                                     #
@@ -95,21 +97,17 @@ class ConfigViewModel(QObject):
         Если схема верна, пробрасывает сырые данные дальше во View.
         """
         try:
-            # 1. Security Validation: Path Traversal & DoS (File size)
-            safe_path = SecurityUtils.validate_safe_path(filepath, BASE_DIR)
-            SecurityUtils.validate_file_size(safe_path)
-
-            # 2. Reading and Parsing
-            text = safe_path.read_text(encoding="utf-8")
+            # Reading is delegated to the repository
+            text = self._preset_repository.load_preset(filepath)
             config = TuningSetup.model_validate_json(text)
             self.preset_loaded.emit(config.model_dump(mode="json"))
         except ValidationError as e:
             # Для ошибок структуры файла при парсинге (Pydantic ValidationError наследуется от ValueError, 
             # поэтому этот блок должен идти ПЕРВЫМ)
             self.global_error_occurred.emit(f"Ошибка содержимого файла пресета:\n{str(e)}")
-        except (PermissionError, ValueError) as e:
-            # Security violations (Traversal or oversized file)
-            self.global_error_occurred.emit(f"Ошибка безопасности:\n{str(e)}")
+        except (PermissionError, ValueError, FileNotFoundError) as e:
+            # Security violations (Traversal or oversized file) or missing file
+            self.global_error_occurred.emit(f"Ошибка безопасности/поиска файла:\n{str(e)}")
         except Exception as e:
             self.global_error_occurred.emit(f"Ошибка чтения файла:\n{str(e)}")
 

@@ -9,7 +9,7 @@ from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewMo
 @pytest.fixture
 def view_model_mock():
     # Make sure we use an actual QObject for signals to work
-    vm = ConfigViewModel(MagicMock(), MagicMock())
+    vm = ConfigViewModel(MagicMock(), MagicMock(), MagicMock())
     return vm
 
 @pytest.fixture

@@ -16,8 +16,12 @@ def state_manager_mock():
     return MagicMock(spec=ConfigStateManager)
 
 @pytest.fixture
-def view_model(validator_mock, state_manager_mock):
-    return ConfigViewModel(validator_mock, state_manager_mock)
+def preset_repository_mock():
+    return MagicMock()
+
+@pytest.fixture
+def view_model(validator_mock, state_manager_mock, preset_repository_mock):
+    return ConfigViewModel(validator_mock, state_manager_mock, preset_repository_mock)
 
 def test_get_initial_data_no_config(view_model, state_manager_mock):
     state_manager_mock.get_config.return_value = None
@@ -71,52 +75,38 @@ def test_apply_config_locked_error(view_model, validator_mock, state_manager_moc
     
     assert blocker.args == ["Locked!"]
 
-def test_load_config_from_file_success(view_model, qtbot, tmp_path):
-    # Setup test file
-    test_file = tmp_path / "test.json"
+def test_load_config_from_file_success(view_model, preset_repository_mock, qtbot):
+    # Setup mock file reading
     valid_json = TuningDefaults.as_dict()
     import json
-    test_file.write_text(json.dumps(valid_json), encoding="utf-8")
+    preset_repository_mock.load_preset.return_value = json.dumps(valid_json)
 
-    # Patch BASE_DIR so that our tmp_path is considered "inside the sandbox"
-    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
-        with qtbot.waitSignal(view_model.preset_loaded) as blocker:
-            view_model.load_config_from_file(str(test_file))
+    with qtbot.waitSignal(view_model.preset_loaded) as blocker:
+        view_model.load_config_from_file("dummy_path")
     
     # The loaded dictionary should equal our defaults
     assert blocker.args == [valid_json]
 
-def test_load_config_from_file_validation_error(view_model, qtbot, tmp_path):
-    # Setup test file with invalid field types
-    test_file = tmp_path / "test.json"
-    test_file.write_text('{"tires": {"front_pressure_bar": "INVALID_FLOAT"}}', encoding="utf-8")
+def test_load_config_from_file_validation_error(view_model, preset_repository_mock, qtbot):
+    preset_repository_mock.load_preset.return_value = '{"tires": {"front_pressure_bar": "INVALID_FLOAT"}}'
 
-    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
-        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
-            view_model.load_config_from_file(str(test_file))
+    with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+        view_model.load_config_from_file("dummy_path")
     
     assert "Ошибка содержимого файла пресета" in blocker.args[0]
 
-def test_load_config_from_file_read_error(view_model, qtbot, tmp_path):
-    # Pass non-existent file inside the sandbox
-    test_file = tmp_path / "non_existent_file.json"
-    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", tmp_path):
-        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
-            view_model.load_config_from_file(str(test_file))
-    
-    assert "Ошибка чтения файла" in blocker.args[0]
+def test_load_config_from_file_read_error(view_model, preset_repository_mock, qtbot):
+    preset_repository_mock.load_preset.side_effect = FileNotFoundError("Not found")
 
-def test_load_config_from_file_security_violation(view_model, qtbot, tmp_path):
-    # Setup test file outside our sandbox
-    test_file = tmp_path / "test.json"
-    test_file.touch()
+    with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+        view_model.load_config_from_file("dummy_path")
     
-    # Set sandbox to a DIFFERENT directory
-    sandbox = tmp_path / "sandbox"
-    sandbox.mkdir()
-    
-    with patch("desktop_client.presentation.viewmodels.config_viewmodel.BASE_DIR", sandbox):
-        with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
-            view_model.load_config_from_file(str(test_file))
+    assert "Ошибка безопасности/поиска файла" in blocker.args[0]
+
+def test_load_config_from_file_security_violation(view_model, preset_repository_mock, qtbot):
+    preset_repository_mock.load_preset.side_effect = PermissionError("Access denied")
+
+    with qtbot.waitSignal(view_model.global_error_occurred) as blocker:
+        view_model.load_config_from_file("dummy_path")
             
-    assert "Ошибка безопасности" in blocker.args[0]
+    assert "Ошибка безопасности/поиска" in blocker.args[0]

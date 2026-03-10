@@ -3,8 +3,7 @@ from PySide6.QtWidgets import QWidget
 
 from desktop_client.presentation.views.config_dialog import ConfigDialog
 from desktop_client.presentation.views.settings_dialog import SettingsDialog
-from desktop_client.presentation.interfaces.protocols import IDialogService, IMainViewModel
-from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
+from desktop_client.presentation.interfaces.protocols import IDialogService, IMainViewModel, IConfigViewModel
 
 
 class DialogService(IDialogService):
@@ -15,7 +14,7 @@ class DialogService(IDialogService):
     pyside6-uic–generated classes internally.
     """
 
-    def __init__(self, view_model: IMainViewModel, config_vm: ConfigViewModel = None):
+    def __init__(self, view_model: IMainViewModel, config_vm: IConfigViewModel):
         self._vm = view_model
         self._config_vm = config_vm
         self._main_window: Optional[QWidget] = None
