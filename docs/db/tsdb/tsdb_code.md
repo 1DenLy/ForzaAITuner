@@ -14,15 +14,30 @@ Table Telemetry {
   // Углы кузова (Yaw, Pitch, Roll) - массив из 3 элементов
   body_angles float4[] [note: "Index: 1=Yaw, 2=Pitch, 3=Roll"]
 
-  // --- Группа 2: Колеса (Массивы по 4 элемента) ---
-  // Порядок всегда: [FL, FR, RL, RR]
-  // Это сокращает кол-во колонок в 4 раза!
-  
-  susp_travel float4[] [note: "Ход подвески (нормализован 0-1)"]
-  wheel_slip float4[]  [note: "Пробуксовка"]
-  wheel_speed float4[] [note: "Скорость вращения каждого колеса"]
-  tire_temp integer[]  [note: "Температура (целые числа)"]
-  
+  // --- Группа 2: Колеса (Отдельные колонки для аналитики) ---
+  // Храним FL, FR, RL, RR отдельными колонками типа real/integer
+  // В аналитических БД (Timescale) агрегация и поиск по элементам
+  // массива часто убивает использование индексов и снижает производительность
+
+  susp_travel_fl float4
+  susp_travel_fr float4
+  susp_travel_rl float4
+  susp_travel_rr float4
+
+  wheel_slip_fl float4
+  wheel_slip_fr float4
+  wheel_slip_rl float4
+  wheel_slip_rr float4
+
+  wheel_speed_fl float4
+  wheel_speed_fr float4
+  wheel_speed_rl float4
+  wheel_speed_rr float4
+
+  tire_temp_fl integer
+  tire_temp_fr integer
+  tire_temp_rl integer
+  tire_temp_rr integer
   // --- Группа 3: Ввод (Inputs) ---
   // Можно хранить отдельно, так как их часто смотрят отдельно от колес
   throttle float4

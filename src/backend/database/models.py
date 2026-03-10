@@ -5,6 +5,27 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, FLOAT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from sqlalchemy import text, event
+from sqlalchemy import Enum as SQLAlchemyEnum
+import enum
+
+class CarClass(enum.Enum):
+    D = "D"
+    C = "C"
+    B = "B"
+    A = "A"
+    S1 = "S1"
+    S2 = "S2"
+    X = "X"
+
+class DrivetrainType(enum.Enum):
+    RWD = "RWD"
+    FWD = "FWD"
+    AWD = "AWD"
+
+class EngineLocation(enum.Enum):
+    Front = "Front"
+    Mid = "Mid"
+    Rear = "Rear"
 
 class Base(DeclarativeBase):
     pass
@@ -30,15 +51,15 @@ class BuildStats(Base):
     car_id: Mapped[int] = mapped_column(ForeignKey("cars.id"), nullable=False)
     
     pi_rating: Mapped[int] = mapped_column(Integer, nullable=False)
-    car_class: Mapped[str] = mapped_column(String(10), nullable=False) # Enum: A, S1, S2...
+    car_class: Mapped[CarClass] = mapped_column(SQLAlchemyEnum(CarClass), nullable=False)
     
     horsepower_kw: Mapped[int] = mapped_column(Integer)
     torque_nm: Mapped[int] = mapped_column(Integer)
     weight_kg: Mapped[int] = mapped_column(Integer)
     weight_dist_front: Mapped[float] = mapped_column(Float)
     
-    drivetrain: Mapped[str] = mapped_column(String(10)) # RWD, AWD
-    engine_location: Mapped[str] = mapped_column(String(10))
+    drivetrain: Mapped[DrivetrainType] = mapped_column(SQLAlchemyEnum(DrivetrainType))
+    engine_location: Mapped[EngineLocation] = mapped_column(SQLAlchemyEnum(EngineLocation))
     
     has_adjustable_aero_front: Mapped[bool] = mapped_column(Boolean, default=False)
     has_adjustable_aero_rear: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -88,6 +109,10 @@ class Tune(Base):
     camber_front: Mapped[float] = mapped_column(Float)
     camber_rear: Mapped[float] = mapped_column(Float)
     
+    # Тормоза
+    brake_balance: Mapped[Optional[float]] = mapped_column(Float)
+    brake_pressure: Mapped[Optional[float]] = mapped_column(Float)
+    
     gear_ratios: Mapped[list] = mapped_column(JSONB) # Список чисел
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -98,6 +123,9 @@ class Tune(Base):
     __table_args__ = (
         CheckConstraint('tire_pressure_front > 0 AND tire_pressure_front < 10', name='check_tire_f_safe'),
         CheckConstraint('tire_pressure_rear > 0 AND tire_pressure_rear < 10', name='check_tire_r_safe'),
+        CheckConstraint('camber_front BETWEEN -10 AND 10', name='check_camber_f'),
+        CheckConstraint('brake_balance >= 0 AND brake_balance <= 1', name='check_brake_bal'),
+        CheckConstraint('brake_pressure >= 0 AND brake_pressure <= 2.0', name='check_brake_pres'),
     )
 
 # 5. Сессии
@@ -133,11 +161,30 @@ class Telemetry(Base):
     g_force: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4))) 
     body_angles: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4)))
 
-    # Колеса [FL, FR, RL, RR]
-    susp_travel: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4)))
-    wheel_slip: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4)))
-    wheel_speed: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4)))
-    tire_temp: Mapped[List[int]] = mapped_column(ARRAY(Integer))
+    # Колеса (Отдельные колонки для аналитики)
+    # Ход подвески
+    susp_travel_fl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    susp_travel_fr: Mapped[float] = mapped_column(FLOAT(precision=4))
+    susp_travel_rl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    susp_travel_rr: Mapped[float] = mapped_column(FLOAT(precision=4))
+
+    # Пробуксовка
+    wheel_slip_fl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_slip_fr: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_slip_rl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_slip_rr: Mapped[float] = mapped_column(FLOAT(precision=4))
+
+    # Скорость вращения
+    wheel_speed_fl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_speed_fr: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_speed_rl: Mapped[float] = mapped_column(FLOAT(precision=4))
+    wheel_speed_rr: Mapped[float] = mapped_column(FLOAT(precision=4))
+
+    # Температура шин
+    tire_temp_fl: Mapped[int] = mapped_column(Integer)
+    tire_temp_fr: Mapped[int] = mapped_column(Integer)
+    tire_temp_rl: Mapped[int] = mapped_column(Integer)
+    tire_temp_rr: Mapped[int] = mapped_column(Integer)
 
     # Ввод
     input_throttle: Mapped[float] = mapped_column(FLOAT(precision=4))
