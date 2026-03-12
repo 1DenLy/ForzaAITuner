@@ -5,7 +5,7 @@ Run as part of CI/CD setup or initial project bootstrapping:
     python scripts/compile_ui.py
 
 Generated .py files are placed in:
-    src/desktop_client/presentation/ui_gen/
+    src/desktop_client/presentation/ui/generated/
 
 The generated files should be committed to version control so that
 at runtime no QUiLoader is needed (faster startup, strict typing).
@@ -18,10 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # Source directory with .ui files
-ASSETS_DIR = ROOT / "src" / "desktop_client" / "presentation" / "assets"
+ASSETS_DIR = ROOT / "src" / "desktop_client" / "presentation" / "ui" / "forms"
 
 # Output directory for generated .py files
-OUTPUT_DIR = ROOT / "src" / "desktop_client" / "presentation" / "ui_gen"
+OUTPUT_DIR = ROOT / "src" / "desktop_client" / "presentation" / "ui" / "generated"
 
 # Maps .ui filename -> generated .py filename
 UI_FILES = {

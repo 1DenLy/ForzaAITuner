@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from desktop_client.backend_sync.local_buffer import LocalBuffer
+from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
 
 
 def test_put_and_size():

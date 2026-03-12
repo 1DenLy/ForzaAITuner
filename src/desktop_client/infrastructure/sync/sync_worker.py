@@ -3,7 +3,7 @@ import structlog
 import aiohttp
 from typing import Any, Callable, List, Optional
 
-from desktop_client.backend_sync.local_buffer import LocalBuffer
+from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
 from desktop_client.infrastructure.signal_bus import SignalBus
 from desktop_client.domain.events import BackendErrorEvent
 

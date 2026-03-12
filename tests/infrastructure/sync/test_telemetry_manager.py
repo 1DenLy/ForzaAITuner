@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 # We use patch or just mock the attributes after instantiation
-from desktop_client.services.telemetry_manager import TelemetryManager
+from desktop_client.application.services.telemetry_manager import TelemetryManager
 
 @pytest.fixture
 def manager():

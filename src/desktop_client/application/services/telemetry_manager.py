@@ -3,7 +3,7 @@ from typing import Any, List
 
 import structlog
 
-from desktop_client.backend_sync.protocols import IBuffer, ISyncWorker
+from desktop_client.infrastructure.sync.protocols import IBuffer, ISyncWorker
 from desktop_client.presentation.interfaces.protocols import ICoreFacade
 
 logger = structlog.get_logger(__name__)

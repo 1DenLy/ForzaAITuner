@@ -20,11 +20,11 @@ from desktop_client.infrastructure.local_preset_repository import LocalPresetRep
 # Application layer & Services
 from desktop_client.application.config_state_manager import ConfigStateManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
-from desktop_client.services.telemetry_manager import TelemetryManager
-from desktop_client.backend_sync.local_buffer import LocalBuffer
-from desktop_client.backend_sync.sync_worker import SyncWorker
+from desktop_client.application.services.telemetry_manager import TelemetryManager
+from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
+from desktop_client.infrastructure.sync.sync_worker import SyncWorker
 from desktop_client.forza_core.application.core_facade import RealCoreFacade
-from desktop_client.mappers.telemetry_mapper import serialize_batch
+from desktop_client.application.mappers.telemetry_mapper import serialize_batch
 
 # Presentation layer
 from desktop_client.presentation.services.dialog_service import DialogService

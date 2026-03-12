@@ -2,8 +2,8 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from desktop_client.backend_sync.local_buffer import LocalBuffer
-from desktop_client.backend_sync.sync_worker import SyncWorker
+from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
+from desktop_client.infrastructure.sync.sync_worker import SyncWorker
 
 
 def _make_worker(buffer: LocalBuffer, **kwargs) -> SyncWorker:
