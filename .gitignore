@@ -5282,3 +5282,6 @@ venv/Lib/site-packages/pytestqt/wait_signal.py
 .idea/PythonProject.iml
 tmp_names.txt
 .idea/PythonProject.iml
+docs/Implementation Plan.md
+src/desktop_client/presentation/ui_gen/
+.idea/

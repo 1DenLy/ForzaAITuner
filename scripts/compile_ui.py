@@ -28,6 +28,8 @@ UI_FILES = {
     "api_v1.1.ui": "ui_main_window.py",
     "config_dialog.ui": "ui_config_dialog.py",
     "settings_dialog.ui": "ui_settings_dialog.py",
+    "config_library.ui": "ui_config_library.py",
+    "list widget.ui": "ui_list_widget.py",
 }
 
 
