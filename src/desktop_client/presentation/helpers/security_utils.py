@@ -1,10 +1,8 @@
 from pathlib import Path
 
-# Hard upper limit for UI definition files.
-# Protects against XML-bomb / OOM attacks fed through QUiLoader.
-# A legitimate .ui file is rarely larger than ~100 KB; 5 MB is a very
-# generous ceiling that still prevents runaway memory consumption.
-MAX_UI_FILE_BYTES: int = 5 * 1024 * 1024  # 5 MiB
+# Hard upper limit for external files (presets, assets etc.).
+# Protects against DoS / OOM attacks when reading unknown files.
+MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MiB
 
 
 class SecurityUtils:
@@ -45,7 +43,7 @@ class SecurityUtils:
         return resolved
 
     @staticmethod
-    def validate_file_size(path: Path, max_bytes: int = MAX_UI_FILE_BYTES) -> None:
+    def validate_file_size(path: Path, max_bytes: int = MAX_FILE_SIZE_BYTES) -> None:
         """
         Ensures *path* does not exceed *max_bytes* before it is opened by any
         parser / loader, guarding against XML-bomb / OOM denial-of-service.
