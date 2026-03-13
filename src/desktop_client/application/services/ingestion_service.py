@@ -5,6 +5,8 @@ from ...domain.models import TelemetryPacket
 from ...domain.events import RaceStarted, RaceStopped
 from .race_monitor import RaceStateMonitor
 from ...domain.interface.interfaces import IPacketParser, IOutQueue
+from ...validation import TelemetrySanityValidator
+import time
 
 logger = structlog.get_logger()
 
@@ -16,13 +18,16 @@ class IngestionService:
         self, 
         queue: asyncio.Queue,
         out_queue: IOutQueue,
-        parser: IPacketParser
+        parser: IPacketParser,
+        sanity_validator: TelemetrySanityValidator
     ):
         self._queue = queue
         self._out_queue = out_queue
         self._parser = parser
+        self._sanity_validator = sanity_validator
         self._monitor = RaceStateMonitor()
         self._running = False
+        self._last_sanity_error_time = 0.0
 
     async def run(self) -> None:
         """
@@ -41,6 +46,15 @@ class IngestionService:
                 try:
                     packet = self._parser.parse(data)
                     if packet:
+                        # Sanity Check (NaN/Inf)
+                        res = self._sanity_validator.validate(packet)
+                        if not res.is_valid:
+                            now = time.time()
+                            if now - self._last_sanity_error_time >= 1.0:
+                                logger.warning("ingestion_sanity_check_failed", reason=res.errors[0].message)
+                                self._last_sanity_error_time = now
+                            continue
+                            
                         await self._process_packet(packet)
                 except asyncio.CancelledError:
                     raise

@@ -14,8 +14,9 @@ from config import BASE_DIR, get_settings
 
 # Domain & Infrastructure layer
 from desktop_client.domain.tuning import TuningSetup
-from desktop_client.infrastructure.local_config_repository import LocalConfigRepository
 from desktop_client.infrastructure.local_preset_repository import LocalPresetRepository
+from desktop_client.validation import PathValidator, FileSizeValidator, PacketValidator, TelemetrySanityValidator
+from desktop_client.infrastructure.local_config_repository import LocalConfigRepository
 
 # Application layer & Services
 from desktop_client.application.config_state_manager import ConfigStateManager
@@ -84,15 +85,22 @@ def bootstrap_dependencies(settings):
     async_runner = AsyncioThreadRunner()
     packet_parser = PacketParser()
     
+    sanity_validator = TelemetrySanityValidator()
+    
     def ingestion_factory(udp_q: asyncio.Queue, out_q: IOutQueue, parser: IPacketParser) -> IngestionService:
-        return IngestionService(queue=udp_q, out_queue=out_q, parser=parser)
+        return IngestionService(queue=udp_q, out_queue=out_q, parser=parser, sanity_validator=sanity_validator)
+
+    packet_validator = PacketValidator()
+    
+    def udp_protocol_factory(q: asyncio.Queue) -> UdpListener:
+        return UdpListener(q, packet_validator)
 
     core_facade = RealCoreFacade(
         out_queue=local_buffer,
         async_runner=async_runner,
         packet_parser=packet_parser,
         ingestion_factory=ingestion_factory,
-        udp_protocol_factory=UdpListener,
+        udp_protocol_factory=udp_protocol_factory,
         host=settings.network.host,
         port=settings.network.port
     )
@@ -109,7 +117,10 @@ def bootstrap_dependencies(settings):
     
     app_config_validator = ConfigValidatorService(TuningSetup)
     local_config_repo = LocalConfigRepository(BASE_DIR)
-    local_preset_repo = LocalPresetRepository(BASE_DIR)
+    
+    path_validator = PathValidator(BASE_DIR)
+    size_validator = FileSizeValidator()
+    local_preset_repo = LocalPresetRepository(path_validator, size_validator)
     app_config_state_manager = ConfigStateManager(local_config_repo)
     app_config_state_manager.initialize(TuningSetup.model_validate)
     

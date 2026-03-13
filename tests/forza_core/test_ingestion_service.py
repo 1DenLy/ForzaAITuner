@@ -16,7 +16,16 @@ async def test_ingestion_service_routes_valid_packet():
     mock_packet.is_race_on = 1  # Чтобы пакет прошел фильтр в сервисе
     mock_parser.parse.return_value = mock_packet
     
-    service = IngestionService(queue=in_queue, out_queue=out_queue, parser=mock_parser)
+    # Мокаем валидатор
+    mock_validator = MagicMock()
+    mock_validator.validate.return_value = MagicMock(is_valid=True)
+    
+    service = IngestionService(
+        queue=in_queue, 
+        out_queue=out_queue, 
+        parser=mock_parser, 
+        sanity_validator=mock_validator
+    )
     
     # 2. Запускаем сервис в фоне
     task = asyncio.create_task(service.run())

@@ -8,15 +8,20 @@ try:
 except ImportError:
     from typing_extensions import override
 
+from desktop_client.validation import PacketValidator
+
 logger = logging.getLogger(__name__)
 
 class UdpListener(asyncio.DatagramProtocol):
     """
     High-performance UDP listener for Forza Telemetry.
+    Implements 'Fail Fast' rule: drops invalid packets immediately.
     """
-    def __init__(self, queue: asyncio.Queue):
+    def __init__(self, queue: asyncio.Queue, validator: PacketValidator):
         self.queue = queue
+        self._validator = validator
         self._last_error_log_time = 0.0
+        self.dropped_packets = 0
 
     @override
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -25,23 +30,31 @@ class UdpListener(asyncio.DatagramProtocol):
     @override
     def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         """
-        Receive datagram and push to queue. Zero-latency.
-        Implements Drop Tail strategy via put_nowait.
+        Receive datagram, validate size immediately, and push to queue.
         """
+        # 1. Fail Fast Validation
+        result = self._validator.validate(data)
+        if not result.is_valid:
+            self.dropped_packets += 1
+            now = time.time()
+            if now - self._last_error_log_time >= 1.0:
+                logger.warning(
+                    "udp_packet_dropped", 
+                    reason=result.errors[0].message, 
+                    size=len(data),
+                    total_dropped=self.dropped_packets
+                )
+                self._last_error_log_time = now
+            return
+
+        # 2. Push to queue (Drop Tail if full)
         try:
             self.queue.put_nowait((data, addr))
         except asyncio.QueueFull:
-            # Drop Tail strategy: Just ignore new packets if queue is full.
-            # Log with rate limiting to avoid spamming I/O.
+            self.dropped_packets += 1
             now = time.time()
             if now - self._last_error_log_time >= 1.0:
                 logger.warning("udp_queue_full_dropped_packet")
-                self._last_error_log_time = now
-        except Exception as e:
-            # Throttling logs: max 1 per second
-            now = time.time()
-            if now - self._last_error_log_time >= 1.0:
-                logger.warning(f"udp_receive_error: {e}")
                 self._last_error_log_time = now
 
     @override
