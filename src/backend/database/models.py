@@ -27,11 +27,14 @@ class EngineLocation(enum.Enum):
     Mid = "Mid"
     Rear = "Rear"
 
-class Base(DeclarativeBase):
+class MainBase(DeclarativeBase):
+    pass
+
+class TSBase(DeclarativeBase):
     pass
 
 # 1. Машины
-class Car(Base):
+class Car(MainBase):
     __tablename__ = "cars"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -44,7 +47,7 @@ class Car(Base):
     build_stats: Mapped[List["BuildStats"]] = relationship(back_populates="car")
 
 # 2. Билд: Статистика (Hot Data)
-class BuildStats(Base):
+class BuildStats(MainBase):
     __tablename__ = "build_stats"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -71,7 +74,7 @@ class BuildStats(Base):
     tunes: Mapped[List["Tune"]] = relationship(back_populates="build")
 
 # 3. Билд: Запчасти (Cold Data, JSONB)
-class BuildParts(Base):
+class BuildParts(MainBase):
     __tablename__ = "build_parts"
 
     build_id: Mapped[int] = mapped_column(ForeignKey("build_stats.id"), primary_key=True)
@@ -92,7 +95,7 @@ class BuildParts(Base):
     stats: Mapped["BuildStats"] = relationship(back_populates="parts")
 
 # 4. Настройки (Tunes) с защитой данных
-class Tune(Base):
+class Tune(MainBase):
     __tablename__ = "tunes"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -129,7 +132,7 @@ class Tune(Base):
     )
 
 # 5. Сессии
-class Session(Base):
+class Session(MainBase):
     __tablename__ = "sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -141,25 +144,29 @@ class Session(Base):
     duration_seconds: Mapped[float] = mapped_column(Float)
 
     tune: Mapped["Tune"] = relationship(back_populates="sessions")
-    # cascade="all, delete" нужно для очистки телеметрии при удалении сессии
-    telemetry_logs: Mapped[List["Telemetry"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    # telemetry_logs removed due to physical database separation
 
 # 6. Телеметрия (Массивы + TimeSeries ready)
-class Telemetry(Base):
+class Telemetry(TSBase):
     __tablename__ = "telemetry"
 
     # Timescale требует, чтобы время было частью Primary Key
     time: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, index=True, primary_key=True)
 
     # Общая физика
     speed_mps: Mapped[float] = mapped_column(FLOAT(precision=4)) 
     rpm: Mapped[int] = mapped_column(Integer)
     gear: Mapped[int] = mapped_column(Integer)
 
-    # Векторы [X, Y, Z]
-    g_force: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4))) 
-    body_angles: Mapped[List[float]] = mapped_column(ARRAY(FLOAT(precision=4)))
+    # Векторы [X, Y, Z] распакованы для лучшего сжатия
+    g_force_x: Mapped[float] = mapped_column(FLOAT(precision=4))
+    g_force_y: Mapped[float] = mapped_column(FLOAT(precision=4))
+    g_force_z: Mapped[float] = mapped_column(FLOAT(precision=4))
+
+    body_yaw: Mapped[float] = mapped_column(FLOAT(precision=4))
+    body_pitch: Mapped[float] = mapped_column(FLOAT(precision=4))
+    body_roll: Mapped[float] = mapped_column(FLOAT(precision=4))
 
     # Колеса (Отдельные колонки для аналитики)
     # Ход подвески
@@ -193,31 +200,16 @@ class Telemetry(Base):
     input_clutch: Mapped[float] = mapped_column(FLOAT(precision=4))
     input_handbrake: Mapped[bool] = mapped_column(Boolean)
 
-    session: Mapped["Session"] = relationship(back_populates="telemetry_logs")
-
+    # session relationship removed due to physical database separation
 # ==========================================
-# AUTO-MIGRATION: Превращаем таблицу в Hypertable
+# ALEMBIC / TIMESCALEDB INSTRUCTIONS
 # ==========================================
-def after_telemetry_create(target, connection, **kw):
-    """
-    Выполняется автоматически сразу после создания таблицы telemetry.
-    Превращает обычную таблицу в TimescaleDB Hypertable.
-    """
-    print("Converting 'telemetry' to TimescaleDB Hypertable...")
-    connection.execute(text(
-        "SELECT create_hypertable('telemetry', 'time', if_not_exists => TRUE);"
-    ))
-    
-    # Опционально: Включаем сжатие данных (для экономии места в 10+ раз)
-    # Сжимаем данные старше 7 дней
-    try:
-        connection.execute(text(
-            "ALTER TABLE telemetry SET (timescaledb.compress, timescaledb.compress_segmentby = 'session_id');"
-        ))
-        # Политика сжатия добавляется отдельно, обычно через cron jobs, 
-        # но включить саму возможность сжатия лучше сразу.
-    except Exception as e:
-        print(f"Warning: Could not enable compression (maybe already enabled?): {e}")
-
-# Подписываемся на событие создания таблицы
-event.listen(Telemetry.__table__, 'after_create', after_telemetry_create)
+# Когда вы инициализируете Alembic (alembic init) для этой базы данных, 
+# сгенерируйте первую миграцию (alembic revision --autogenerate), 
+# и вручную добавьте следующий код в функцию upgrade():
+#
+# def upgrade() -> None:
+#     # ... существующий код создания таблиц ...
+#     op.execute("SELECT create_hypertable('telemetry', 'time', if_not_exists => TRUE);")
+#     op.execute("ALTER TABLE telemetry SET (timescaledb.compress, timescaledb.compress_segmentby = 'session_id');")
+# ==========================================

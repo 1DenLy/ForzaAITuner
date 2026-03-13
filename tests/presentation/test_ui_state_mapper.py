@@ -1,5 +1,5 @@
 import pytest
-from desktop_client.presentation.services.ui_state_mapper import UIStateMapper, ButtonConfig
+from desktop_client.presentation.helpers.ui_state_mapper import UIStateMapper, ButtonConfig
 from desktop_client.presentation.state.session_state import SessionState
 from desktop_client.presentation.state.config_state import ConfigState
 from desktop_client.presentation.resources.strings import UIStrings

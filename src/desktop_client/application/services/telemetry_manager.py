@@ -3,12 +3,12 @@ from typing import Any, List
 
 import structlog
 
-from desktop_client.infrastructure.sync.protocols import IBuffer, ISyncWorker
-from desktop_client.presentation.interfaces.protocols import ICoreFacade
+from desktop_client.domain.interface.protocols import IBuffer, ISyncWorker
+from desktop_client.domain.interface.interfaces import ICoreFacade, ITelemetryManager
 
 logger = structlog.get_logger(__name__)
 
-class TelemetryManager:
+class TelemetryManager(ITelemetryManager):
     """
     Менеджер сессии (Session Manager).
     Единая точка управления стартом и остановкой гонки для UI.

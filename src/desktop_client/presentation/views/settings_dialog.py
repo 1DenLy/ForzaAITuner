@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QDialog
 
 from desktop_client.presentation.interfaces.protocols import IMainViewModel
-from desktop_client.presentation.ui_gen.ui_settings_dialog import Ui_SettingsDialog
+from desktop_client.presentation.ui.generated.ui_settings_dialog import Ui_SettingsDialog
 
 
 class SettingsDialog(QDialog):

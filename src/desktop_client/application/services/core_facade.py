@@ -2,11 +2,9 @@ import asyncio
 import logging
 from typing import Optional, Callable
 
-from desktop_client.presentation.interfaces.protocols import ICoreFacade
-from desktop_client.forza_core.domain.interfaces import IOutQueue, IAsyncRunner, IPacketParser
+from desktop_client.domain.interface.interfaces import IOutQueue, IAsyncRunner, IPacketParser, ICoreFacade
 from .ingestion_service import IngestionService
-from desktop_client.forza_core.infrastructure.udp_transport import UdpListener
-from config import get_settings
+
 
 # Setup logger for this module
 logger = logging.getLogger(__name__)
@@ -23,7 +21,10 @@ class RealCoreFacade(ICoreFacade):
                  out_queue: IOutQueue, 
                  async_runner: IAsyncRunner,
                  packet_parser: IPacketParser,
-                 ingestion_factory: Callable[[asyncio.Queue, IOutQueue, IPacketParser], IngestionService]):
+                 ingestion_factory: Callable[[asyncio.Queue, IOutQueue, IPacketParser], IngestionService],
+                 udp_protocol_factory: Callable[[asyncio.Queue], asyncio.DatagramProtocol],
+                 host: str,
+                 port: int):
         """
         Receives dependencies from Composition Root.
         """
@@ -31,6 +32,9 @@ class RealCoreFacade(ICoreFacade):
         self._async_runner = async_runner
         self._packet_parser = packet_parser
         self._ingestion_factory = ingestion_factory
+        self._udp_protocol_factory = udp_protocol_factory
+        self._host = host
+        self._port = port
         
         self._is_running = False
         
@@ -40,8 +44,7 @@ class RealCoreFacade(ICoreFacade):
         self._ingestion_task: Optional[asyncio.Task] = None
         self._udp_transport: Optional[asyncio.DatagramTransport] = None
         
-        # Load settings for network config
-        self._settings = get_settings()
+
 
     def start_tracking(self) -> None:
         if self._is_running:
@@ -70,8 +73,8 @@ class RealCoreFacade(ICoreFacade):
         # 4. Create UDP Endpoint
         try:
             transport, protocol = await loop.create_datagram_endpoint(
-                lambda: UdpListener(udp_queue),
-                local_addr=(self._settings.network.host, self._settings.network.port)
+                lambda: self._udp_protocol_factory(udp_queue),
+                local_addr=(self._host, self._port)
             )
             self._udp_transport = transport
             logger.info(f"UDP Transport started listening on {self._udp_transport.get_extra_info('sockname')}.")

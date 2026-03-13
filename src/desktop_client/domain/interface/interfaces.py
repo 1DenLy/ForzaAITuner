@@ -1,5 +1,5 @@
-from typing import Protocol
-from .models import TelemetryPacket
+from typing import Protocol, Any
+from ..models import TelemetryPacket
 
 class IPacketParser(Protocol):
     """
@@ -43,4 +43,50 @@ class IAsyncRunner(Protocol):
 
     def submit(self, coro: 'asyncio.coroutine') -> 'asyncio.Future': # type: ignore
         """Submits a coroutine to run in the managed event loop from another thread."""
+        ...
+
+
+class ICoreFacade(Protocol):
+    """
+    Interface for interacting with the Core Application logic.
+    Decouples Presentation Layer from specific Core implementations.
+    """
+    def start_tracking(self) -> None:
+        """Starts the race session tracking/recording."""
+        ...
+
+    def stop_tracking(self) -> None:
+        """Stops the race session tracking."""
+        ...
+
+    def cleanup(self) -> None:
+        """Performs cleanup operations (e.g. closing connections) for graceful shutdown."""
+        ...
+
+    def is_tracking(self) -> bool:
+        """Returns True if a session is currently being tracked."""
+        ...
+
+
+class ITelemetryManager(Protocol):
+    """
+    Interface for the telemetry session manager.
+    Coordinates telemetry pipeline start/stop.
+    """
+    async def start_session(self) -> None:
+        ...
+
+    async def stop_session(self) -> None:
+        ...
+
+
+class IEventBus(Protocol):
+    """
+    Interface for cross-module event dispatching.
+    Decouples infrastructure (like PySide6 Signals) from application logic.
+    """
+    def emit(self, event: Any) -> None:
+        """
+        Dispatches an event to all interested subscribers.
+        """
         ...

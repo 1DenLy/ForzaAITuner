@@ -23,11 +23,12 @@ from desktop_client.application.config_validator_service import ConfigValidatorS
 from desktop_client.application.services.telemetry_manager import TelemetryManager
 from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
 from desktop_client.infrastructure.sync.sync_worker import SyncWorker
-from desktop_client.forza_core.application.core_facade import RealCoreFacade
+from desktop_client.application.services.core_facade import RealCoreFacade
 from desktop_client.application.mappers.telemetry_mapper import serialize_batch
+from desktop_client.infrastructure.network.udp_transport import UdpListener
 
 # Presentation layer
-from desktop_client.presentation.services.dialog_service import DialogService
+from desktop_client.presentation.helpers.dialog_service import DialogService
 from desktop_client.presentation.state.config_state import ConfigState
 from desktop_client.presentation.state.session_state import SessionState
 from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
@@ -60,10 +61,10 @@ def log_secure_validation_error(e: ValidationError, logger_instance: logging.Log
     logger_instance.critical(f"Failed to validate configuration.\nDetails:\n{error_message}")
 
 
-from desktop_client.forza_core.infrastructure.asyncio_runner import AsyncioThreadRunner
-from desktop_client.forza_core.application.packet_parser import PacketParser
-from desktop_client.forza_core.application.ingestion_service import IngestionService
-from desktop_client.forza_core.domain.interfaces import IOutQueue, IPacketParser
+from desktop_client.infrastructure.network.asyncio_runner import AsyncioThreadRunner
+from desktop_client.infrastructure.parsers.packet_parser import PacketParser
+from desktop_client.application.services.ingestion_service import IngestionService
+from desktop_client.domain.interface.interfaces import IOutQueue, IPacketParser
 
 def bootstrap_dependencies(settings):
     """Initializes and returns the core application dependencies."""
@@ -77,7 +78,7 @@ def bootstrap_dependencies(settings):
         buffer=local_buffer,
         api_url=settings.network.api_url,
         serializer=serialize_batch,
-        signal_bus=signal_bus,
+        event_bus=signal_bus,
     )
     
     async_runner = AsyncioThreadRunner()
@@ -90,7 +91,10 @@ def bootstrap_dependencies(settings):
         out_queue=local_buffer,
         async_runner=async_runner,
         packet_parser=packet_parser,
-        ingestion_factory=ingestion_factory
+        ingestion_factory=ingestion_factory,
+        udp_protocol_factory=UdpListener,
+        host=settings.network.host,
+        port=settings.network.port
     )
     
     # Assembly

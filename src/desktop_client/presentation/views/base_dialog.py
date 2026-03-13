@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QDialog
-from desktop_client.presentation.services.ui_loader_service import UiLoaderService
+from desktop_client.presentation.helpers.ui_loader_service import UiLoaderService
 
 class BaseDialog(QObject):
     """

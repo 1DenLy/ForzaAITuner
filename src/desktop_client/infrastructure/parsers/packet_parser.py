@@ -1,6 +1,6 @@
 import struct
-from ..domain.models import TelemetryPacket
-from ..domain.interfaces import IPacketParser
+from ...domain.models import TelemetryPacket
+from ...domain.interface.interfaces import IPacketParser
 
 class PacketParser(IPacketParser):
     """

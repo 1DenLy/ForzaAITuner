@@ -3,7 +3,7 @@ import logging
 import threading
 from typing import Coroutine, Any, TypeVar
 
-from desktop_client.forza_core.domain.interfaces import IAsyncRunner
+from desktop_client.domain.interface.interfaces import IAsyncRunner
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ from pathlib import Path
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QIODevice, QObject
 
-from desktop_client.presentation.services.security_utils import SecurityUtils
+from desktop_client.presentation.helpers.security_utils import SecurityUtils
 
 
 class UiLoaderService:

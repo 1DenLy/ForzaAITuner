@@ -1,7 +1,7 @@
 from typing import List, Optional
 import dataclasses
-from ..domain.models import TelemetryPacket
-from ..domain.events import RaceStarted, RaceStopped
+from ...domain.models import TelemetryPacket
+from ...domain.events import RaceStarted, RaceStopped
 
 class RaceStateMonitor:
     """

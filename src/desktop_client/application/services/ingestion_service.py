@@ -1,10 +1,10 @@
 import asyncio
 import structlog
 import dataclasses
-from ..domain.models import TelemetryPacket
-from ..domain.events import RaceStarted, RaceStopped
+from ...domain.models import TelemetryPacket
+from ...domain.events import RaceStarted, RaceStopped
 from .race_monitor import RaceStateMonitor
-from ..domain.interfaces import IPacketParser, IOutQueue
+from ...domain.interface.interfaces import IPacketParser, IOutQueue
 
 logger = structlog.get_logger()
 

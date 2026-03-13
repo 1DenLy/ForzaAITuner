@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from desktop_client.presentation.viewmodels.main_vm import MainViewModel
 from desktop_client.presentation.state.config_state import ConfigState
 from desktop_client.presentation.state.session_state import SessionState
-from desktop_client.presentation.interfaces.protocols import ITelemetryManager
+from desktop_client.domain.interface.interfaces import ITelemetryManager
 
 
 @pytest.fixture

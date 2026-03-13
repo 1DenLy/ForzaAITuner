@@ -4,7 +4,7 @@ import logging
 _logger = logging.getLogger(__name__)
 from PySide6.QtCore import QObject, Signal
 
-from desktop_client.presentation.interfaces.protocols import ITelemetryManager
+from desktop_client.domain.interface.interfaces import ITelemetryManager
 from desktop_client.presentation.state.app_state import AppState
 from desktop_client.presentation.state.session_state import SessionState
 from desktop_client.presentation.resources.strings import UIStrings

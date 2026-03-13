@@ -1,8 +1,8 @@
 import pytest
 import asyncio
 from unittest.mock import MagicMock
-from desktop_client.forza_core.application.ingestion_service import IngestionService
-from desktop_client.forza_core.domain.models import TelemetryPacket
+from desktop_client.application.services.ingestion_service import IngestionService
+from desktop_client.domain.models.telemetry_models import TelemetryPacket
 
 @pytest.mark.asyncio
 async def test_ingestion_service_routes_valid_packet():

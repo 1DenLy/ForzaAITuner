@@ -3,8 +3,10 @@ from collections import deque
 from contextlib import contextmanager
 from typing import Any, Generator, List
 
+from desktop_client.domain.interface.protocols import IBuffer
 
-class LocalBuffer:
+
+class LocalBuffer(IBuffer):
     def __init__(self, maxsize: int = 60000):
         self._maxsize = maxsize
         self._queue = deque(maxlen=maxsize)

@@ -1,3 +1,4 @@
+from typing import Any
 from PySide6.QtCore import QObject, Signal
 from desktop_client.domain.events import BackendErrorEvent
 
@@ -9,3 +10,11 @@ class SignalBus(QObject):
     """
     backend_error_occurred = Signal(BackendErrorEvent)
     # Add only cross-module global events here to avoid "God Object" anti-pattern.
+
+    def emit(self, event: Any) -> None:
+        """
+        Implementation of IEventBus.emit.
+        Routes domain events to specific PySide6 signals.
+        """
+        if isinstance(event, BackendErrorEvent):
+            self.backend_error_occurred.emit(event)

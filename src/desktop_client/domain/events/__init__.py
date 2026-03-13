@@ -1,3 +1,5 @@
+from .events import RaceStarted, RaceStopped
+
 import dataclasses
 
 @dataclasses.dataclass(frozen=True, slots=True)

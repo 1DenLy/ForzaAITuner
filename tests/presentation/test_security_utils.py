@@ -1,7 +1,7 @@
 import pytest
 import os
 from pathlib import Path
-from desktop_client.presentation.services.security_utils import SecurityUtils, MAX_UI_FILE_BYTES
+from desktop_client.presentation.helpers.security_utils import SecurityUtils, MAX_UI_FILE_BYTES
 
 def test_validate_safe_path_detects_path_traversal(tmp_path):
     # Arrange

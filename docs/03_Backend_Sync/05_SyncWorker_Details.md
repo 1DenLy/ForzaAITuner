@@ -12,7 +12,7 @@ classDiagram
         -batch_size : int
         -interval_sec : float
         -_serializer : Callable
-        -_signal_bus : Optional[SignalBus]
+        -_signal_bus : Optional[IEventBus]
         -_is_running : bool
         -_task : Optional[Task]
         -_session : Optional[ClientSession]
@@ -37,7 +37,7 @@ The worker executes a loop as long as `_is_running` is true.
 ### 2. Dependency Inversion (SRP)
 The `SyncWorker` does not know "how" to serialize the telemetry or how to communicate with the UI. 
 - It receives a `serializer` function during initialization for data manipulation.
-- It receives a `SignalBus` via constructor injection to asynchronously dispatch `BackendErrorEvent`s securely to the presentation layer without coupling.
+- It receives a `IEventBus` via constructor injection to asynchronously dispatch `BackendErrorEvent`s securely to the presentation layer without coupling.
 - **Goal:** This allows the networking logic to remain stable even if the telemetry data structure changes, and allows thread-safe UI error reporting.
 
 ### 3. Graceful Shutdown & Force Flush
@@ -51,7 +51,7 @@ When the `stop()` method is called:
 
 | Method | Role |
 | :--- | :--- |
-| `__init__(buffer: IBuffer, ...)` | **Crucial:** Expects an `IBuffer` implementation and an optional `SignalBus`. Ensures decoupled storage and decoupled UI error reporting. |
+| `__init__(buffer: IBuffer, ...)` | **Crucial:** Expects an `IBuffer` implementation and an optional `IEventBus`. Ensures decoupled storage and decoupled UI error reporting. |
 | `start()` | Initializes the `ClientSession` and spawns the `_run_loop` task. |
 | `_send_batch()` | Performs the `POST` request. Returns `True` if HTTP status is 200/201. |
 | `stop()` | Signals the loop to terminate and initiates the final data flush. |

@@ -5,8 +5,8 @@ from desktop_client.presentation.interfaces.protocols import IDialogService, IMa
 from desktop_client.presentation.state.config_state import ConfigState
 from desktop_client.presentation.state.session_state import SessionState
 from desktop_client.presentation.resources.strings import UIStrings
-from desktop_client.presentation.services.ui_state_mapper import UIStateMapper, ButtonConfig
-from desktop_client.presentation.ui_gen.ui_main_window import Ui_MainWindow
+from desktop_client.presentation.helpers.ui_state_mapper import UIStateMapper, ButtonConfig
+from desktop_client.presentation.ui.generated.ui_main_window import Ui_MainWindow
 
 
 class MainWindow(QMainWindow):

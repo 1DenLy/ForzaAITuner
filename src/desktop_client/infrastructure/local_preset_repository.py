@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from desktop_client.presentation.interfaces.protocols import IPresetRepository
-from desktop_client.presentation.services.security_utils import SecurityUtils
+from desktop_client.presentation.helpers.security_utils import SecurityUtils
 
 
 class LocalPresetRepository(IPresetRepository):

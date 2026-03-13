@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QWidget, Q
 from PySide6.QtCore import SIGNAL
 
 from desktop_client.presentation.interfaces.protocols import IConfigViewModel
-from desktop_client.presentation.ui_gen.ui_config_dialog import Ui_ConfigDialog
+from desktop_client.presentation.ui.generated.ui_config_dialog import Ui_ConfigDialog
 from desktop_client.presentation.mappers.tuning_binder import TuningMapper
 from desktop_client.presentation.resources.strings import UIStrings
 
