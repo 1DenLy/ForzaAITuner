@@ -1,5 +1,5 @@
 from typing import Protocol, Optional
-from models.car_config import CarConfig
+from desktop_client.domain.models.car_config import CarConfig
 
 class ILocalData(Protocol):
     """Интерфейс для работы с текущим активным состоянием (локальный кэш)."""

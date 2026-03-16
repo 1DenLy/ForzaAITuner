@@ -1,5 +1,5 @@
 from typing import Protocol, List, Optional
-from models.car_config import CarConfig # Твоя Pydantic модель
+from desktop_client.domain.models.car_config import CarConfig # Твоя Pydantic модель
 
 class IConfigData(Protocol):
     """Интерфейс для работы с основной базой данных конфигураций."""
