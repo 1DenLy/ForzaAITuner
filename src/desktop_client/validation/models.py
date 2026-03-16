@@ -15,6 +15,7 @@ class ValidationErrorCode(str, Enum):
     INVALID_LENGTH = "invalid_length"
     INVALID_FLOAT = "invalid_float"
     NOT_A_DATACLASS = "not_a_dataclass"
+    SCHEMA_ERROR = "schema_error"
 
 @dataclass(frozen=True)
 class ValidationError:
