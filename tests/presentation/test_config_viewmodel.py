@@ -23,17 +23,17 @@ def preset_repository_mock():
 def view_model(validator_mock, state_manager_mock, preset_repository_mock):
     return ConfigViewModel(validator_mock, state_manager_mock, preset_repository_mock)
 
-def test_get_initial_data_no_config(view_model, state_manager_mock):
+def test_get_last_valid_config_no_config(view_model, state_manager_mock):
     state_manager_mock.get_config.return_value = None
-    data = view_model.get_initial_data()
+    data = view_model.get_last_valid_config()
     assert data == TuningDefaults.as_dict()
 
-def test_get_initial_data_with_config(view_model, state_manager_mock):
+def test_get_last_valid_config_with_config(view_model, state_manager_mock):
     config_mock = MagicMock()
     config_mock.model_dump.return_value = {"tires": {"front_pressure_bar": 2.0}}
     state_manager_mock.get_config.return_value = config_mock
     
-    data = view_model.get_initial_data()
+    data = view_model.get_last_valid_config()
     assert data == {"tires": {"front_pressure_bar": 2.0}}
 
 def test_apply_config_validation_failed(view_model, validator_mock, qtbot):

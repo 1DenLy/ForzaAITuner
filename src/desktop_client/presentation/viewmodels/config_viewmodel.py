@@ -62,11 +62,11 @@ class ConfigViewModel(QObject):
     # Public Methods                                                     #
     # ------------------------------------------------------------------ #
 
-    def get_initial_data(self) -> dict[str, Any]:
+    def get_last_valid_config(self) -> dict[str, Any]:
         """
-        Возвращает чистый словарь модели из state_manager для маппера.
-        Если конфигурация ещё не загружена — возвращает доменные дефолты,
-        чтобы форма открылась заполненной, а не пустой.
+        Возвращает чистый словарь модели (TuningSetup) из state_manager.
+        Это 'последнее валидное сохраненное состояние'.
+        Если конфигурация ещё не загружена — возвращает доменные дефолты.
         """
         config = self._state_manager.get_config()
         if config is not None:

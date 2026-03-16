@@ -45,7 +45,7 @@ class IConfigViewModel(Protocol):
     config_saved: Any
     global_error_occurred: Any
 
-    def get_initial_data(self) -> dict[str, Any]:
+    def get_last_valid_config(self) -> dict[str, Any]:
         ...
 
     def apply_config(self, raw_data_dict: dict[str, Any]) -> None:

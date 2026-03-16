@@ -69,7 +69,7 @@ class MyCustomDialog(QDialog):
 | Кнопка | Тип | Сигнал UI | Метод View (маршрутизатор) | Вызываемый метод / сигнал ViewModel |
 | :--- | :--- | :--- | :--- | :--- |
 | **Save** | `QDialogButtonBox.Save` | `clicked` | `_on_save_clicked()` | `vm.apply_config(raw_data)` |
-| **Reset** | `QDialogButtonBox.Reset` | `clicked` | `_populate_initial_data()` | `vm.get_initial_data()` |
+| **Reset** | `QDialogButtonBox.Reset` | `clicked` | `_load_last_valid_config()` | `vm.get_last_valid_config()` |
 | **Close** | `QDialogButtonBox.Close` | `clicked` | `self.reject()` | — (закрытие без сохранения) |
 | **Open** | `QDialogButtonBox.Open` | `clicked` | `_on_open_preset_clicked()` | — (заглушка, в разработке) |
 

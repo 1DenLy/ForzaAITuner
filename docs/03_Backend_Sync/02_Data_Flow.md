@@ -54,8 +54,11 @@ sequenceDiagram
 ## How it works:
 1. The game constanty streams **UDP Datagrams**, which are processed by `forza_core` and immediately stored in the **LocalBuffer**.
 2. The **SyncWorker** periodically takes a batch of data and attempts to send it to the **Backend API**.
-3. If the connection fails, data remains in the buffer.
+3. If the connection fails, data remains in the buffer (current implementation is IN-MEMORY, but MUST BE REFACTORED TO DISK-BASED PERSISTENCE).
 4. When the session is stopped, all remaining data is force-synced to ensure no loss.
+
+> [!IMPORTANT]
+> **ПЛАН РЕФАКТОРИНГА:** ТЕКУЩАЯ РЕАЛИЗАЦИЯ LocalBuffer ИСПОЛЬЗУЕТ ОПЕРАТИВНУЮ ПАМЯТЬ. НЕОБХОДИМО РЕФАКТОРИТЬ ПОД ИСПОЛЬЗОВАНИЕ ДИСКОВОГО ХРАНИЛИЩА (SQLITE ИЛИ BINARY DISK QUEUE) ДЛЯ ГАРАНТИИ СОХРАННОСТИ ДАННЫХ ПРИ ВЫКЛЮЧЕНИИ ПРИЛОЖЕНИЯ.
 
 ## Security & Logging
 > [!CAUTION]

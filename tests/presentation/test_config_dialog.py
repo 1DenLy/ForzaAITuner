@@ -20,13 +20,13 @@ def config_dialog(view_model_mock, qtbot, monkeypatch):
     return dialog
 
 def test_reset_button_clicked(config_dialog, view_model_mock, qtbot):
-    view_model_mock.get_initial_data = MagicMock(return_value={"some": "data"})
+    view_model_mock.get_last_valid_config = MagicMock(return_value={"some": "data"})
     config_dialog.mapper.export_to_ui = MagicMock()
 
     reset_btn = config_dialog.ui.buttonBox.button(QDialogButtonBox.Reset)
     qtbot.mouseClick(reset_btn, Qt.LeftButton)
 
-    view_model_mock.get_initial_data.assert_called_once()
+    view_model_mock.get_last_valid_config.assert_called_once()
     config_dialog.mapper.export_to_ui.assert_called_once_with({"some": "data"}, config_dialog.ui)
 
 def test_save_button_validation_failed(config_dialog, view_model_mock, qtbot):

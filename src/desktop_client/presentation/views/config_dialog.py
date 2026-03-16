@@ -34,7 +34,7 @@ class ConfigDialog(QDialog):
         self.mapper.configure_ranges(self.ui)       # 2. min/max/default from domain
         self.mapper.setup_slider_labels(self.ui)    # 3. connect label to valueChanged
         self._connect_signals()
-        self._populate_initial_data()               # 4. load real data
+        self._load_last_valid_config()               # 4. load real data
 
     # ------------------------------------------------------------------ #
     # Setup & Initialization Methods                                     #
@@ -56,7 +56,7 @@ class ConfigDialog(QDialog):
 
         reset_button = self.ui.buttonBox.button(QDialogButtonBox.Reset)
         if reset_button:
-            reset_button.clicked.connect(self._populate_initial_data)
+            reset_button.clicked.connect(self._load_last_valid_config)
 
         close_button = self.ui.buttonBox.button(QDialogButtonBox.Close)
         if close_button:
@@ -72,9 +72,9 @@ class ConfigDialog(QDialog):
         self.vm.config_saved.connect(self.accept)
         self.vm.global_error_occurred.connect(self._on_global_error)
 
-    def _populate_initial_data(self) -> None:
-        """Fills UI with current values from ViewModel."""
-        model_data = self.vm.get_initial_data()
+    def _load_last_valid_config(self) -> None:
+        """Fills UI with last valid saved state from ViewModel."""
+        model_data = self.vm.get_last_valid_config()
         self.mapper.export_to_ui(model_data, self.ui)
 
     # ------------------------------------------------------------------ #
