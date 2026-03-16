@@ -94,28 +94,63 @@ class BuildParts(MainBase):
 
     stats: Mapped["BuildStats"] = relationship(back_populates="parts")
 
-# 4. Настройки (Tunes) с защитой данных
+# 4. Настройки (Tunes)
 class Tune(MainBase):
     __tablename__ = "tunes"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     build_id: Mapped[int] = mapped_column(ForeignKey("build_stats.id"), nullable=False)
     
-    name: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(String(100), default="Default Tune")
     description: Mapped[Optional[str]] = mapped_column(String)
     
-    # Constraints (Безопасность): Давление > 0 и < 10 бар
+    # Шины (Tires)
     tire_pressure_front: Mapped[float] = mapped_column(Float)
     tire_pressure_rear: Mapped[float] = mapped_column(Float)
     
-    # Геометрия (-10 до +10 градусов)
+    # Развал/Схождение (Alignment)
     camber_front: Mapped[float] = mapped_column(Float)
     camber_rear: Mapped[float] = mapped_column(Float)
-    
-    # Тормоза
-    brake_balance: Mapped[Optional[float]] = mapped_column(Float)
-    brake_pressure: Mapped[Optional[float]] = mapped_column(Float)
-    
+    toe_front: Mapped[float] = mapped_column(Float)
+    toe_rear: Mapped[float] = mapped_column(Float)
+    caster: Mapped[float] = mapped_column(Float)
+
+    # Стабилизаторы (Anti-roll Bars)
+    arb_front: Mapped[float] = mapped_column(Float)
+    arb_rear: Mapped[float] = mapped_column(Float)
+
+    # Пружины (Suspension/Springs)
+    spring_front: Mapped[float] = mapped_column(Float)
+    spring_rear: Mapped[float] = mapped_column(Float)
+    height_front: Mapped[float] = mapped_column(Float)
+    height_rear: Mapped[float] = mapped_column(Float)
+
+    # Амортизаторы (Damping)
+    rebound_front: Mapped[float] = mapped_column(Float)
+    rebound_rear: Mapped[float] = mapped_column(Float)
+    bump_front: Mapped[float] = mapped_column(Float)
+    bump_rear: Mapped[float] = mapped_column(Float)
+
+    # Аэродинамика (Aerodynamics)
+    aero_front: Mapped[float] = mapped_column(Float)
+    aero_rear: Mapped[float] = mapped_column(Float)
+
+    # Тормоза (Brakes)
+    brake_balance: Mapped[float] = mapped_column(Float, default=0.5)
+    brake_pressure: Mapped[float] = mapped_column(Float, default=1.0)
+
+    # Дифференциал (Differential)
+    diff_accel_front: Mapped[Optional[float]] = mapped_column(Float)
+    diff_decel_front: Mapped[Optional[float]] = mapped_column(Float)
+    diff_accel_rear: Mapped[Optional[float]] = mapped_column(Float)
+    diff_decel_rear: Mapped[Optional[float]] = mapped_column(Float)
+    diff_balance: Mapped[Optional[float]] = mapped_column(Float)
+
+    # Помощники (Assists) - храним как JSONB или отдельные поля
+    assists: Mapped[dict] = mapped_column(JSONB, default={})
+
+    # Передачи (Gearing)
+    final_drive: Mapped[float] = mapped_column(Float, default=3.5)
     gear_ratios: Mapped[list] = mapped_column(JSONB) # Список чисел
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -127,8 +162,6 @@ class Tune(MainBase):
         CheckConstraint('tire_pressure_front > 0 AND tire_pressure_front < 10', name='check_tire_f_safe'),
         CheckConstraint('tire_pressure_rear > 0 AND tire_pressure_rear < 10', name='check_tire_r_safe'),
         CheckConstraint('camber_front BETWEEN -10 AND 10', name='check_camber_f'),
-        CheckConstraint('brake_balance >= 0 AND brake_balance <= 1', name='check_brake_bal'),
-        CheckConstraint('brake_pressure >= 0 AND brake_pressure <= 2.0', name='check_brake_pres'),
     )
 
 # 5. Сессии

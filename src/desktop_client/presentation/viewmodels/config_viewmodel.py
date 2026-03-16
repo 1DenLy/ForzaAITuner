@@ -1,21 +1,26 @@
 """
 Конфигурационный ViewModel.
-Связывает слой Application (ConfigValidatorService, ConfigStateManager) с UI (View).
+Связывает слой Application (ConfigValidatorService, ConfigDataManager) с UI (View).
 Отвечает за конвертацию плоских словарей формы во вложенную структуру и маппинг ошибок.
 """
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal
-from pydantic import ValidationError
 
-from desktop_client.application.config_state_manager import ConfigStateManager
+from desktop_client.application.config_data_manager import ConfigDataManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
-from desktop_client.application.exceptions import ConfigLockedError
-from desktop_client.domain.tuning import TuningSetup
+from desktop_client.application.exceptions import ConfigLockedError, PresetLoadError
+from desktop_client.application.state import ConfigFlowManager
 from desktop_client.domain.tuning_defaults import TuningDefaults
+from desktop_client.domain.models import ConfigState
 from desktop_client.presentation.interfaces.protocols import IPresetRepository
+from desktop_client.presentation.resources.strings import UIStrings
+from desktop_client.validation.ui_formatter import format_errors_for_ui
+
+_logger = logging.getLogger(__name__)
 
 
 class ConfigViewModel(QObject):
@@ -40,8 +45,9 @@ class ConfigViewModel(QObject):
     def __init__(
         self,
         validator: ConfigValidatorService,
-        state_manager: ConfigStateManager,
+        state_manager: ConfigDataManager,
         preset_repository: IPresetRepository,
+        config_flow: ConfigFlowManager,
         parent: QObject | None = None
     ) -> None:
         """
@@ -57,6 +63,11 @@ class ConfigViewModel(QObject):
         self._validator = validator
         self._state_manager = state_manager
         self._preset_repository = preset_repository
+        self._config_flow = config_flow
+
+    @property
+    def config_flow(self) -> ConfigFlowManager:
+        return self._config_flow
 
     # ------------------------------------------------------------------ #
     # Public Methods                                                     #
@@ -78,50 +89,53 @@ class ConfigViewModel(QObject):
         Обрабатывает событие сохранения формы от View.
         Здесь raw_data_dict уже имеет правильную вложенную структуру благодаря мапперу.
         """
+        self._config_flow.set_state(ConfigState.VALIDATING)
         result = self._validator.validate(raw_data_dict)
         
         if not result.is_valid:
-            field_errors, global_errors = self._format_pydantic_errors(result.errors)
+            self._config_flow.set_state(ConfigState.INVALID)
+            field_errors, global_errors = format_errors_for_ui(result)
             self.validation_failed.emit(field_errors, global_errors)
             return
 
         try:
+            self._config_flow.set_state(ConfigState.SAVING)
             self._state_manager.update_config(result.data)
+            self._config_flow.set_state(ConfigState.READY)
             self.config_saved.emit()
         except ConfigLockedError as e:
+            self._config_flow.set_state(ConfigState.EDITING)
             self.global_error_occurred.emit(str(e))
 
     def load_config_from_file(self, filepath: str) -> None:
         """
-        Загружает пресет из файла, валидируя его схему Pydantic.
+        Загружает пресет из файла, валидируя его схему.
         Если схема верна, пробрасывает сырые данные дальше во View.
         """
         try:
             # Reading is delegated to the repository
             text = self._preset_repository.load_preset(filepath)
-            config = TuningSetup.model_validate_json(text)
-            self.preset_loaded.emit(config.model_dump(mode="json"))
-        except ValidationError as e:
-            # Для ошибок структуры файла при парсинге (Pydantic ValidationError наследуется от ValueError, 
-            # поэтому этот блок должен идти ПЕРВЫМ)
-            self.global_error_occurred.emit(f"Ошибка содержимого файла пресета:\n{str(e)}")
-        except (PermissionError, ValueError, FileNotFoundError) as e:
-            # Security violations (Traversal or oversized file) or missing file
-            self.global_error_occurred.emit(f"Ошибка безопасности/поиска файла:\n{str(e)}")
-        except Exception as e:
-            self.global_error_occurred.emit(f"Ошибка чтения файла:\n{str(e)}")
-
-    def _format_pydantic_errors(self, pydantic_errors: dict[str, str]) -> tuple[dict[str, str], list[str]]:
-        """
-        Разделяет ошибки от ConfigValidatorService на field_errors и global_errors.
-        Пути с сепаратором ' -> ' форматируются в точечную нотацию. 
-        """
-        field_errors = {}
-        global_errors = []
-        for loc_key, msg in pydantic_errors.items():
-            if loc_key == "__root__" or loc_key == "":
-                global_errors.append(msg)
+            result = self._validator.validate_json(text)
+            
+            if result.is_valid and result.data is not None:
+                self.preset_loaded.emit(result.data.model_dump(mode="json"))
             else:
-                dot_key = loc_key.replace(" -> ", ".")
-                field_errors[dot_key] = msg
-        return field_errors, global_errors
+                # Format specific errors if possible, or just show a general error
+                _, global_errors = format_errors_for_ui(result)
+                err_msg = ", ".join(global_errors) if global_errors else "Validation failed"
+                _logger.warning(f"Validation failed for preset {filepath}: {err_msg}")
+                self.global_error_occurred.emit(UIStrings.ERR_PRESET_SCHEMA.format(err_msg))
+                
+        except PresetLoadError as e:
+            # Domain exception from repository (wraps OS and security errors)
+            _logger.error(f"Failed to load preset {filepath}", exc_info=True)
+            self.global_error_occurred.emit(UIStrings.ERR_LOAD_PRESET)
+        except ValueError as e:
+            # Likely JSON decoding error from validate_json or similar
+            _logger.error(f"Invalid JSON in preset {filepath}", exc_info=True)
+            self.global_error_occurred.emit(UIStrings.ERR_INVALID_JSON_FORMAT.format(str(e)))
+        except Exception as e:
+            # Catch-all for unexpected bugs
+            _logger.critical(f"Unexpected error while loading preset {filepath}", exc_info=True)
+            self.global_error_occurred.emit(UIStrings.ERR_GENERIC.format("Unexpected error"))
+

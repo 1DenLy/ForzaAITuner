@@ -22,3 +22,6 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 qasync==0.28.0
 SQLAlchemy==2.0.35
+fastapi==0.115.0
+uvicorn==0.31.0
+alembic==1.13.3

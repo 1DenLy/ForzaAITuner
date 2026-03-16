@@ -19,7 +19,7 @@ from desktop_client.validation import PathValidator, FileSizeValidator, PacketVa
 from desktop_client.infrastructure.local_config_repository import LocalConfigRepository
 
 # Application layer & Services
-from desktop_client.application.config_state_manager import ConfigStateManager
+from desktop_client.application.config_data_manager import ConfigDataManager
 from desktop_client.application.config_validator_service import ConfigValidatorService
 from desktop_client.application.services.telemetry_manager import TelemetryManager
 from desktop_client.infrastructure.sync.local_buffer import LocalBuffer
@@ -30,11 +30,17 @@ from desktop_client.infrastructure.network.udp_transport import UdpListener
 
 # Presentation layer
 from desktop_client.presentation.helpers.dialog_service import DialogService
-from desktop_client.presentation.state.config_state import ConfigState
-from desktop_client.presentation.state.session_state import SessionState
+from desktop_client.domain.models import ConfigState, SessionState, MainState
 from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
 from desktop_client.presentation.viewmodels.main_vm import MainViewModel
 from desktop_client.presentation.views.main_window import MainWindow
+
+# State Management
+from desktop_client.application.state.main_flow import MainFlowManager
+from desktop_client.application.state.session_flow import SessionFlowManager
+from desktop_client.application.state.config_flow import ConfigFlowManager
+from desktop_client.application.state.library_flow import LibraryFlowManager
+from desktop_client.presentation.viewmodels.config_library_viewmodel import ConfigLibraryViewModel
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -113,7 +119,17 @@ def bootstrap_dependencies(settings):
     )
 
     logger.info("Initializing ViewModels...")
-    main_vm = MainViewModel(telemetry_manager)
+
+    main_flow = MainFlowManager()
+    session_flow = SessionFlowManager()
+    config_flow = ConfigFlowManager()
+    library_flow = LibraryFlowManager()
+
+    main_vm = MainViewModel(
+        telemetry_manager=telemetry_manager, 
+        session_flow=session_flow, 
+        main_flow=main_flow
+    )
     
     app_config_validator = ConfigValidatorService(TuningSetup)
     local_config_repo = LocalConfigRepository(BASE_DIR)
@@ -121,27 +137,43 @@ def bootstrap_dependencies(settings):
     path_validator = PathValidator(BASE_DIR)
     size_validator = FileSizeValidator()
     local_preset_repo = LocalPresetRepository(path_validator, size_validator)
-    app_config_state_manager = ConfigStateManager(local_config_repo)
-    app_config_state_manager.initialize(TuningSetup.model_validate)
+    app_config_data_manager = ConfigDataManager(local_config_repo)
+    app_config_data_manager.initialize(TuningSetup.model_validate)
     
-    config_vm = ConfigViewModel(app_config_validator, app_config_state_manager, local_preset_repo)
+    config_vm = ConfigViewModel(
+        app_config_validator, 
+        app_config_data_manager, 
+        local_preset_repo,
+        config_flow
+    )
+
+    library_vm = ConfigLibraryViewModel(
+        config_repo=local_config_repo,
+        local_state=app_config_data_manager, # Using app_config_data_manager as local_state contextually
+        library_flow=library_flow
+    )
     
-    return main_vm, config_vm, app_config_state_manager, signal_bus
+    return main_vm, config_vm, library_vm, app_config_data_manager, signal_bus
 
 
-def setup_state_bridges(main_vm: MainViewModel, app_config_state_manager: ConfigStateManager, signal_bus=None):
+def setup_state_bridges(main_vm: MainViewModel, app_config_data_manager: ConfigDataManager, signal_bus=None):
     """Sets up the reactive bridges between view models and state managers."""
     # ── Config-state bridge ──────────────────────────────────────────────────
     # Unlock 'Start Session' when valid config is available
     def _on_config_updated(_new_config) -> None:
-        main_vm.app_state.config_state = ConfigState.READY
+        if _new_config:
+            main_vm.main_flow.set_state(MainState.VALID_CONFIG)
+            main_vm.main_flow.set_state(MainState.READY_TO_START)
+        else:
+            main_vm.main_flow.set_state(MainState.MONITORING_CONFIG)
 
-    app_config_state_manager.subscribe(_on_config_updated)
+    app_config_data_manager.subscribe(_on_config_updated)
 
     # Promote state if config already exists on disk
-    if app_config_state_manager.get_config() is not None:
-        main_vm.app_state.config_state = ConfigState.READY
-        logger.info("Cold-start: persisted config found — config_state set to READY.")
+    if app_config_data_manager.get_config() is not None:
+        main_vm.main_flow.set_state(MainState.VALID_CONFIG)
+        main_vm.main_flow.set_state(MainState.READY_TO_START)
+        logger.info("Cold-start: persisted config found — main_flow set to READY_TO_START.")
 
     # ── Session-lock bridge ──────────────────────────────────────────────────
     # Prevent config changes mid-race (while session is active)
@@ -152,9 +184,9 @@ def setup_state_bridges(main_vm: MainViewModel, app_config_state_manager: Config
     })
 
     def _on_session_state_changed(state: SessionState) -> None:
-        app_config_state_manager.is_recording_session = state in _PIPELINE_ACTIVE
+        app_config_data_manager.is_recording_session = state in _PIPELINE_ACTIVE
 
-    main_vm.app_state.session_state_changed.connect(_on_session_state_changed)
+    main_vm.session_flow.state_changed.connect(_on_session_state_changed)
 
     # ── Backend-Error bridge ──────────────────────────────────────────────────
     def _on_backend_error(event):
@@ -181,10 +213,10 @@ async def async_main():
 
 
     # 2. Initialize Dependencies (Services & ViewModels)
-    main_vm, config_vm, app_config_state_manager, signal_bus = bootstrap_dependencies(settings)
+    main_vm, config_vm, library_vm, app_config_data_manager, signal_bus = bootstrap_dependencies(settings)
 
     # 3. Setup reactive bridges
-    setup_state_bridges(main_vm, app_config_state_manager, signal_bus)
+    setup_state_bridges(main_vm, app_config_data_manager, signal_bus)
 
     # 4. Initialize Dialog Services and View (Window)
     logger.info("Initializing View...")

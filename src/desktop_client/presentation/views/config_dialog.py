@@ -1,128 +1,111 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 from typing import Any
 
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QWidget, QFileDialog
-from PySide6.QtCore import SIGNAL
+from PySide6.QtCore import Slot
 
-from desktop_client.presentation.interfaces.protocols import IConfigViewModel
+from desktop_client.presentation.viewmodels.config_viewmodel import ConfigViewModel
 from desktop_client.presentation.ui.generated.ui_config_dialog import Ui_ConfigDialog
 from desktop_client.presentation.mappers.tuning_binder import TuningMapper
 from desktop_client.presentation.resources.strings import UIStrings
+from desktop_client.domain.models import ConfigState
 
 
 class ConfigDialog(QDialog):
     """
-    Окно конфигурации (View), использующее сгенерированный UI (ui_config_dialog.py).
-    Связывается с IConfigViewModel для валидации и передачи данных.
+    Configuration Dialog.
+    Dumb View: No business logic, only setupUi, action forwarding, and signal reaction.
     """
 
-    def __init__(self, view_model: IConfigViewModel, parent: QWidget | None = None) -> None:
+    def __init__(self, viewmodel: ConfigViewModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.vm = view_model
-
-        # ── Initialize Mapper ───────────────────────────────────────────
-        self.mapper = TuningMapper()
-
-        # ── Load UI ──────────────────────────────────
         self.ui = Ui_ConfigDialog()
         self.ui.setupUi(self)
 
+        self._vm = viewmodel
+        self._mapper = TuningMapper()
 
-        # ── Setup widgets and signals ─────────────────────────────────────
-        self.mapper.populate_combo_boxes(self.ui)   # 1. populate list combo boxes
-        self.mapper.configure_ranges(self.ui)       # 2. min/max/default from domain
-        self.mapper.setup_slider_labels(self.ui)    # 3. connect label to valueChanged
-        self._connect_signals()
-        self._load_last_valid_config()               # 4. load real data
+        self._setup_ui_logic()
+        self._setup_connections()
 
-    # ------------------------------------------------------------------ #
-    # Setup & Initialization Methods                                     #
-    # ------------------------------------------------------------------ #
+        # Initial UI update
+        self._on_state_changed(self._vm.config_flow.state)
+        self._load_current_data()
 
+    def _setup_ui_logic(self):
+        """Prepare UI widgets using the mapper."""
+        self._mapper.populate_combo_boxes(self.ui)
+        self._mapper.configure_ranges(self.ui)
+        self._mapper.setup_slider_labels(self.ui)
 
-    def _connect_signals(self) -> None:
-        """Connects View and ViewModel, as well as dialog buttons."""
-        # Disconnect standard signals for custom routing
-        if self.ui.buttonBox.receivers(SIGNAL('accepted()')) > 0:
-            self.ui.buttonBox.accepted.disconnect()
-        if self.ui.buttonBox.receivers(SIGNAL('rejected()')) > 0:
-            self.ui.buttonBox.rejected.disconnect()
+    def _setup_connections(self):
+        # View -> ViewModel (Forward actions)
+        save_btn = self.ui.buttonBox.button(QDialogButtonBox.Save)
+        if save_btn:
+            save_btn.clicked.connect(self._on_save_clicked)
 
-        # --- QDialogButtonBox buttons ---
-        save_button = self.ui.buttonBox.button(QDialogButtonBox.Save)
-        if save_button:
-            save_button.clicked.connect(self._on_save_clicked)
+        reset_btn = self.ui.buttonBox.button(QDialogButtonBox.Reset)
+        if reset_btn:
+            reset_btn.clicked.connect(self._load_current_data)
 
-        reset_button = self.ui.buttonBox.button(QDialogButtonBox.Reset)
-        if reset_button:
-            reset_button.clicked.connect(self._load_last_valid_config)
+        open_btn = self.ui.buttonBox.button(QDialogButtonBox.Open)
+        if open_btn:
+            open_btn.clicked.connect(self._on_open_clicked)
 
-        close_button = self.ui.buttonBox.button(QDialogButtonBox.Close)
-        if close_button:
-            close_button.clicked.connect(self.reject)
+        close_btn = self.ui.buttonBox.button(QDialogButtonBox.Close)
+        if close_btn:
+            close_btn.clicked.connect(self.reject)
 
-        open_button = self.ui.buttonBox.button(QDialogButtonBox.Open)
-        if open_button:
-            open_button.clicked.connect(self._on_open_preset_clicked)
+        # ViewModel -> View (Reactive updates)
+        self._vm.config_flow.state_changed.connect(self._on_state_changed)
+        self._vm.validation_failed.connect(self._on_validation_failed)
+        self._vm.preset_loaded.connect(self._on_preset_loaded)
+        self._vm.config_saved.connect(self.accept)
+        self._vm.global_error_occurred.connect(self._show_error)
 
-        # --- ViewModel -> View signals ---
-        self.vm.validation_failed.connect(self._on_validation_failed)
-        self.vm.preset_loaded.connect(self._on_preset_loaded)
-        self.vm.config_saved.connect(self.accept)
-        self.vm.global_error_occurred.connect(self._on_global_error)
+    def _load_current_data(self):
+        """Load current valid config into UI."""
+        data = self._vm.get_last_valid_config()
+        self._mapper.export_to_ui(data, self.ui)
 
-    def _load_last_valid_config(self) -> None:
-        """Fills UI with last valid saved state from ViewModel."""
-        model_data = self.vm.get_last_valid_config()
-        self.mapper.export_to_ui(model_data, self.ui)
+    @Slot()
+    def _on_save_clicked(self):
+        self._mapper.clear_highlights(self.ui)
+        data = self._mapper.update_from_ui(self.ui)
+        self._vm.apply_config(data)
 
-    # ------------------------------------------------------------------ #
-    # Event Handlers                                                     #
-    # ------------------------------------------------------------------ #
-
-    def _on_save_clicked(self) -> None:
-        """Save button handler — collects data and passes it to ViewModel."""
-        # Clear error highlights before new attempt
-        self.mapper.clear_highlights(self.ui)
-        raw_form_data = self.mapper.update_from_ui(self.ui)
-        self.vm.apply_config(raw_form_data)
-
-    def _on_open_preset_clicked(self) -> None:
-        """
-        Open button handler (Load preset).
-        """
+    @Slot()
+    def _on_open_clicked(self):
         filepath, _ = QFileDialog.getOpenFileName(
             self,
             caption=UIStrings.CAPTION_OPEN_PRESET,
             filter=UIStrings.FILE_FILTER_JSON
         )
         if filepath:
-            self.vm.load_config_from_file(filepath)
+            self._vm.load_config_from_file(filepath)
 
-    def _on_preset_loaded(self, preset_data: dict[str, Any]) -> None:
-        """Fills UI with data loaded from file."""
-        self.mapper.export_to_ui(preset_data, self.ui)
-        QMessageBox.information(
-            self, 
-            UIStrings.TITLE_PRESET_LOADED, 
-            UIStrings.MSG_PRESET_LOAD_SUCCESS
-        )
+    @Slot(ConfigState)
+    def _on_state_changed(self, state: ConfigState):
+        """Update UI elements based on ConfigState Enum."""
+        is_busy = state in (ConfigState.LOADING, ConfigState.SAVING, ConfigState.VALIDATING)
+        self.setEnabled(not is_busy)
+        
+        # Example: show loading overlay or change cursor if busy
+        # if is_busy: self.setCursor(Qt.WaitCursor)
+        # else: self.setCursor(Qt.ArrowCursor)
 
-    def _on_validation_failed(self, field_errors: dict[str, str], global_errors: list[str]) -> None:
-        """
-        Validation failed signal handler from ViewModel.
-        """
-        self.mapper.highlight_errors(self.ui, field_errors)
+    @Slot(dict)
+    def _on_preset_loaded(self, data: dict):
+        self._mapper.export_to_ui(data, self.ui)
+        QMessageBox.information(self, UIStrings.TITLE_PRESET_LOADED, UIStrings.MSG_PRESET_LOAD_SUCCESS)
 
+    @Slot(dict, list)
+    def _on_validation_failed(self, field_errors: dict, global_errors: list):
+        self._mapper.highlight_errors(self.ui, field_errors)
         if global_errors:
-            error_lines = [f"• {msg}" for msg in global_errors]
-            QMessageBox.warning(
-                self,
-                UIStrings.TITLE_VALIDATION_ERROR,
-                UIStrings.MSG_VALIDATION_FAILED_PREFIX + "\n".join(error_lines),
-            )
+            msg = "\n".join([f"• {e}" for e in global_errors])
+            QMessageBox.warning(self, UIStrings.TITLE_VALIDATION_ERROR, msg)
 
-    def _on_global_error(self, message: str) -> None:
-        """Critical error (e.g., ConfigLockedError)."""
-        QMessageBox.critical(self, UIStrings.TITLE_SAVING_ERROR, message)
+    @Slot(str)
+    def _show_error(self, message: str):
+        QMessageBox.critical(self, "Error", message)

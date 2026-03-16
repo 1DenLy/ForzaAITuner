@@ -1,30 +1,45 @@
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QDialogButtonBox
+from PySide6.QtCore import Slot
 
-from desktop_client.presentation.interfaces.protocols import IMainViewModel
+from desktop_client.presentation.viewmodels.main_vm import MainViewModel
 from desktop_client.presentation.ui.generated.ui_settings_dialog import Ui_SettingsDialog
 
 
 class SettingsDialog(QDialog):
     """
     Settings Dialog.
-
-    AOT approach: uses pyside6-uic–generated Ui_SettingsDialog for fast,
-    type-safe UI setup (no runtime QUiLoader).
+    Dumb View: No business logic, only setupUi and signal forwarding.
     """
 
-    def __init__(self, view_model: IMainViewModel, parent=None):
+    def __init__(self, viewmodel: MainViewModel, parent=None):
         super().__init__(parent)
-        self._vm = view_model
+        self.ui = Ui_SettingsDialog()
+        self.ui.setupUi(self)
 
-        # Setup AOT-compiled UI
-        self._ui = Ui_SettingsDialog()
-        self._ui.setupUi(self)
+        self._vm = viewmodel
+        self._setup_connections()
 
-        # buttonBox accepted/rejected are already wired to accept()/reject()
-        # in the generated setupUi.
-        self.accepted.connect(self._on_accepted)
+    def _setup_connections(self):
+        # Override default accepted signal if needed, otherwise it's wired in setupUi
+        # to accept(). If we need to perform logic in VM before accepting:
+        try:
+            self.ui.buttonBox.accepted.disconnect()
+        except (RuntimeError, AttributeError):
+            pass
+        self.ui.buttonBox.accepted.connect(self._on_accepted)
+        
+        reset_btn = self.ui.buttonBox.button(QDialogButtonBox.Reset)
+        if reset_btn:
+            reset_btn.clicked.connect(self._on_reset_clicked)
 
+    @Slot()
     def _on_accepted(self):
-        """Called when the user confirms the dialog (OK button)."""
-        # TODO: apply settings to the appropriate service/model
+        """Forward save action to ViewModel."""
+        # self._vm.save_settings(...)
+        self.accept()
+
+    @Slot()
+    def _on_reset_clicked(self):
+        """Forward reset action to ViewModel."""
+        # self._vm.reset_settings()
         pass
