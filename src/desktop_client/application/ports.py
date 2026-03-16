@@ -17,7 +17,7 @@ class IConfigRepository(Protocol):
     Port for configuration persistence.
 
     Implemented by: infrastructure.LocalConfigRepository
-    Used by:        application.ConfigStateManager
+    Used by:        application.ConfigDataManager
     """
 
     def load_raw_data(self) -> dict[str, Any]:

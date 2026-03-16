@@ -17,7 +17,7 @@ class PydanticModelProtocol(Protocol):
 
 TModel = TypeVar("TModel", bound=PydanticModelProtocol)
 
-class ConfigStateManager(Generic[TModel]):
+class ConfigDataManager(Generic[TModel]):
     """
     Manager representing the Single Source of Truth for the application's configuration.
     
@@ -55,12 +55,12 @@ class ConfigStateManager(Generic[TModel]):
                 raw_data = self.repository.load_raw_data()
                 if raw_data:
                     self._current_config = model_factory(raw_data)
-                    logger.info("ConfigStateManager: persisted configuration loaded successfully.")
+                    logger.info("ConfigDataManager: persisted configuration loaded successfully.")
                 else:
-                    logger.info("ConfigStateManager: repository is empty, starting with defaults.")
+                    logger.info("ConfigDataManager: repository is empty, starting with defaults.")
             except Exception as exc:
                 logger.warning(
-                    "ConfigStateManager: failed to load persisted configuration — "
+                    "ConfigDataManager: failed to load persisted configuration — "
                     "falling back to defaults. Reason: %s",
                     exc,
                 )
