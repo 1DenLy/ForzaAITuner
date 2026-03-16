@@ -62,7 +62,7 @@ stateDiagram-v2
     state "Обработка ошибки I/O (HandleIOError)" as HandleIOError
 
     [*] --> CreatingDomainModel
-    CreatingDomainModel --> UpdatingGlobalState : Передача в ConfigStateManager
+    CreatingDomainModel --> UpdatingGlobalState : Передача в ConfigDataManager
     UpdatingGlobalState --> PersistingToDisk : Запись в .json
     PersistingToDisk --> [*] : Сохранение подтверждено
     PersistingToDisk --> HandleIOError : Ошибка записи (диск/права)

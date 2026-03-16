@@ -47,7 +47,6 @@ stateDiagram-v2
     ReceivingPacket --> WritingToBuffer : Прямая запись
     WritingToBuffer --> BatchCheck : Данные в очереди
     BatchCheck --> ReceivingPacket : < BatchLimit
-    BatchCheck --> ReceivingPacket : < BatchLimit
     BatchCheck --> TriggeringSync : >= BatchLimit
     TriggeringSync --> ReceivingPacket : Success
     TriggeringSync --> SyncError : Backend/Network Error
