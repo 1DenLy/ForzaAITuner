@@ -10,6 +10,10 @@ class UIStrings:
     ERR_VALUE_OUT_OF_RANGE = "Value for '{}' is out of range. Expected {} - {}."
     ERR_FILE_NOT_FOUND = "Configuration file not found: {}"
     ERR_GENERIC = "An unexpected error occurred: {}"
+    ERR_LOAD_PRESET = "Failed to load preset. Please check the file and try again."
+    ERR_SECURITY_VIOLATION = "Access denied or security check failed for file: {}"
+    ERR_OS_ERROR = "A system error occurred while reading the file."
+    ERR_PRESET_SCHEMA = "Preset file contains invalid data: {}"
     
     # Dialog Titles
     TITLE_ERROR = "Error"

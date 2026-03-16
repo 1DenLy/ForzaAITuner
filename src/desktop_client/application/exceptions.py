@@ -9,3 +9,7 @@ class SecurityViolationError(Exception):
 class ConfigLockedError(Exception):
     """Exception raised when attempting to modify configuration while it is locked."""
     pass
+
+class PresetLoadError(Exception):
+    """Exception raised when failed to load a preset from storage."""
+    pass

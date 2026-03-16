@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 import logging
 
 from PySide6.QtWidgets import (
@@ -41,7 +41,7 @@ class WidgetBinding:
     model_to_ui: Callable[[Any], Any] = lambda x: x
 
     # Имя QLabel для отображения числового значения слайдера (None — не отображать)
-    label_name: Optional[str] = field(default=None)
+    label_name: str | None = field(default=None)
 
     # Формат отображения в лейбле:
     #   "float" — 1 знак после запятой: "-1.5", "2.1"  (sliders ×10, ось, давление шин)
@@ -303,7 +303,7 @@ class TuningMapper:
 
                 slider.valueChanged.connect(_make_handler())
 
-    def _get_widget_from_dict_or_obj(self, ui_widgets: UiSource, widget_name: str) -> Optional[QWidget]:
+    def _get_widget_from_dict_or_obj(self, ui_widgets: UiSource, widget_name: str) -> QWidget | None:
         """Возвращает виджет из генерированного Ui_* объекта или словаря (для тестов)."""
         if isinstance(ui_widgets, dict):
             return ui_widgets.get(widget_name)  # type: ignore[return-value]

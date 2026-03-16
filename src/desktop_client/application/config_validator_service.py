@@ -18,9 +18,13 @@ from __future__ import annotations
 
 from typing import Any, Generic, Type, TypeVar
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError as PydanticValidationError
 
-from desktop_client.application.validation_result import ValidationResult
+from desktop_client.validation.models import (
+    ValidationResult, 
+    ValidationError, 
+    ValidationErrorCode
+)
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
@@ -69,18 +73,10 @@ class ConfigValidatorService(Generic[TModel]):
         Returns:
             ValidationResult[TModel]:
                 • is_valid=True, data=<экземпляр модели> — если данные корректны.
-                • is_valid=False, errors={loc: msg, ...} — если есть ошибки валидации.
+                • is_valid=False, errors=(ValidationError, ...) — если есть ошибки валидации.
 
         Raises:
             TypeError: Если raw_data не является dict (ошибка контракта).
-
-        Note — strict mode:
-            Pydantic по умолчанию делает мягкое приведение типов (Coercion):
-            например, строка ``"12.5"`` станет ``float(12.5)`` автоматически.
-            Для десктопного UI текущего поведения (мягкого) достаточно.
-            Если raw_data придёт из недоверенного источника (сеть, API),
-            замени model_validate на:
-                ``self._model_class.model_validate(raw_data, strict=True)``
         """
         if not isinstance(raw_data, dict):
             raise TypeError(
@@ -90,57 +86,46 @@ class ConfigValidatorService(Generic[TModel]):
 
         try:
             valid_model = self._model_class.model_validate(raw_data)
-            return ValidationResult.success(valid_model)
+            return ValidationResult(is_valid=True, data=valid_model)
 
-        except ValidationError as exc:
+        except PydanticValidationError as exc:
             errors = self._parse_validation_errors(exc)
-            return ValidationResult.failure(errors)
+            return ValidationResult(is_valid=False, errors=errors)
+
+    def validate_json(self, json_text: str) -> ValidationResult[TModel]:
+        """
+        Валидирует JSON-строку, возвращает ValidationResult.
+        """
+        try:
+            valid_model = self._model_class.model_validate_json(json_text)
+            return ValidationResult(is_valid=True, data=valid_model)
+        except PydanticValidationError as exc:
+            errors = self._parse_validation_errors(exc)
+            return ValidationResult(is_valid=False, errors=errors)
 
     # ------------------------------------------------------------------ #
     # Private helpers                                                      #
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _parse_validation_errors(exc: ValidationError) -> dict[str, str]:
+    def _parse_validation_errors(exc: PydanticValidationError) -> tuple[ValidationError, ...]:
         """
-        Преобразует pydantic.ValidationError в безопасный для UI словарь ошибок.
-
-        Ключ:   строковый путь до поля внутри JSON, например ``"gearing -> gears -> 0"``.
-        Значение: читаемая суть нарушения (msg) без stack-trace и системных путей —
-                безопасно отображается в UI.
-
-        i18n NOTE:
-            Pydantic генерирует ``msg`` на английском
-            (например: ``"Input should be greater than 0"`` для ``gt=0``).
-            Для локализации (i18n) в будущем — мапить по ключу ``error.get("type")``:
-                ``"greater_than"``, ``"missing"``, ``"string_type"`` и т.п.
-            Таблица всех type-кодов:
-            https://docs.pydantic.dev/latest/errors/validation_errors/
-
-        Args:
-            exc: Исключение pydantic.ValidationError.
-
-        Returns:
-            dict[str, str]: {field_loc_path: human_readable_message}.
+        Преобразует pydantic.ValidationError в стандартизированный список ValidationError.
         """
-        errors: dict[str, str] = {}
+        errors: list[ValidationError] = []
 
         for error in exc.errors(include_url=False):
             loc_parts: tuple = error.get("loc", ())
-            # Собираем путь только из "человеческих" сегментов (str | int),
-            # исключая служебные вставки pydantic (function-before и т.п.)
             readable_parts = [str(part) for part in loc_parts]
-            loc_key = " -> ".join(readable_parts) if readable_parts else "__root__"
+            # Используем dot-notation по умолчанию для совместимости с UI
+            loc_key = ".".join(readable_parts) if readable_parts else None
 
-            # Берём только msg — без url, ctx с внутренними деталями и input.
-            # Для i18n: заменить msg на перевод из словаря
-            # {error.get("type"): "Локализованное сообщение"}.
             msg: str = error.get("msg", "Invalid value")
 
-            # Если под одним loc уже есть ошибка — дополняем через "; "
-            if loc_key in errors:
-                errors[loc_key] += f"; {msg}"
-            else:
-                errors[loc_key] = msg
+            errors.append(ValidationError(
+                code=ValidationErrorCode.SCHEMA_ERROR,
+                message=msg,
+                location=loc_key
+            ))
 
-        return errors
+        return tuple(errors)

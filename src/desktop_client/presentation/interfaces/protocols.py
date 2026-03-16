@@ -1,5 +1,5 @@
 from typing import Protocol, Any
-from desktop_client.presentation.state.app_state import AppState
+from desktop_client.application.state import SessionFlowManager, ConfigFlowManager
 
 
 class IMainViewModel(Protocol):
@@ -9,8 +9,13 @@ class IMainViewModel(Protocol):
     """
 
     @property
-    def app_state(self) -> AppState:
-        """Returns the reactive application state container."""
+    def session_flow(self) -> SessionFlowManager:
+        """Returns the session flow manager."""
+        ...
+
+    @property
+    def config_flow(self) -> ConfigFlowManager:
+        """Returns the config flow manager."""
         ...
 
     def toggle_session(self) -> None:

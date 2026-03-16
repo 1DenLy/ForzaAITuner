@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from desktop_client.presentation.state.session_state import SessionState
-from desktop_client.presentation.state.config_state import ConfigState
+from desktop_client.domain.models import SessionState, ConfigState
 from desktop_client.presentation.resources.strings import UIStrings
 
 
@@ -34,7 +33,9 @@ class UIStateMapper:
             SessionState.IDLE:      UIStrings.STATUS_IDLE,
             SessionState.STARTING:  UIStrings.STATUS_STARTING,
             SessionState.RECORDING: UIStrings.STATUS_RACING,
-            SessionState.FLUSHING:  UIStrings.STATUS_SAVING,
+            SessionState.FLUSHING:      UIStrings.STATUS_SAVING,
+            SessionState.FLUSHING_EXIT: UIStrings.STATUS_SAVING,
+            SessionState.ERROR:         UIStrings.STATUS_ERROR,
         }
         return status_map.get(state, "")
 
