@@ -24,3 +24,25 @@ async def get_db():
             yield session
         finally:
             await session.close()
+
+async def init_db():
+    """Initialize relational database tables."""
+    from src.backend.database.relational import MainBase
+    async with engine.begin() as conn:
+        await conn.run_sync(MainBase.metadata.create_all)
+
+async def init_telemetry_db():
+    """Initialize telemetry database (TimescaleDB hypertable)."""
+    from src.backend.database.models_telemetry import TSBase
+    from sqlalchemy import text
+    
+    async with engine.begin() as conn:
+        # 1. Create standard tables
+        await conn.run_sync(TSBase.metadata.create_all)
+        
+        # 2. Convert telemetry to hypertable (only if not already converted)
+        # TimescaleDB requires the 'time' column for hypertable
+        await conn.execute(text("""
+            SELECT create_hypertable('telemetry', 'time', if_not_exists => TRUE);
+        """))
+
