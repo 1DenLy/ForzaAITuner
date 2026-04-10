@@ -1,21 +1,16 @@
 import struct
 import structlog
-from ...domain.models import TelemetryPacket
-from ...domain.interface.interfaces import IPacketParser
+from typing import Tuple, Any
+from ...domain.interface.i_packet_decoder import IPacketDecoder
 
 logger = structlog.get_logger()
 
-class PacketParser(IPacketParser):
+class PacketDecoder(IPacketDecoder):
     """
-    Parses binary telemetry data into TelemetryPacket objects.
-    
-    Responsibilities:
-    - Decoding binary Forza format (struct unpack).
-    - Mapping data to domain DTO (TelemetryPacket).
+    Decodes binary telemetry data into raw tuples using struct.
     """
 
     # Format for 'Dash' (311 bytes) and 'Sled+' (324 bytes) versions.
-    # Note: 324 bytes version just has extra data at the end which we ignore.
     _FORMAT_V1 = (
         '<'
         'i'  # s32 IsRaceOn
@@ -64,25 +59,13 @@ class PacketParser(IPacketParser):
         'b'    # s8 DriLine
         'b'    # s8 AIBrakeDiff
     )
-    
-    def parse(self, data: bytes) -> TelemetryPacket | None:
-        """
-        Parses bytes into TelemetryPacket.
-        Assumes data has been pre-validated for length.
-        """
+
+    def decode(self, data: bytes) -> Tuple[Any, ...] | None:
         try:
-             # Unpack the fixed part of the packet.
-             # Using unpack_from allows us to handle both 311 and 324 byte packets 
-             # by only reading the first 311 bytes.
-             unpacked = struct.unpack_from(self._FORMAT_V1, data)
-             
-             # Professional approach: use tuple unpacking as the field order 
-             # in TelemetryPacket matches the binary protocol order exactly.
-             return TelemetryPacket(*unpacked, session_id=None)
-             
+             return struct.unpack_from(self._FORMAT_V1, data)
         except struct.error as e:
-             logger.error("packet_parser_binary_error", error=str(e), packet_size=len(data))
+             logger.error("packet_decoder_binary_error", error=str(e), packet_size=len(data))
              return None
         except Exception as e:
-             logger.error("packet_parser_unexpected_error", error=str(e))
+             logger.error("packet_decoder_unexpected_error", error=str(e))
              return None
